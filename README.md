@@ -1,52 +1,52 @@
-# 🎬 Clip Farm Pro (YouTube ➡️ TikTok / Reels / Shorts) + 📱 Mobile PWA
+# 🎬 Clip Farm Pro (YouTube ➡️ TikTok / Reels / Shorts) + 📲 Auto-Post TikTok
 
-Automação inteligente e profissional para esteiras de **Clip Farm**. O sistema ingere vídeos e transmissões ao vivo do YouTube, transcreve com timestamps palavra por palavra, analisa a retenção e picos sonoros com IA (Google Gemini), e renderiza vídeos verticais (9:16) com **legendas dinâmicas estilo TikTok/Alex Hormozi**, thumbnails automáticas e relatórios de postagem.
-
-**Agora com suporte completo para CELULAR (PWA / Web Mobile)!** Você pode controlar toda a esteira direto do seu smartphone Android ou iPhone.
+Automação inteligente e profissional para esteiras de **Clip Farm**. O sistema ingere vídeos e transmissões ao vivo do YouTube, transcreve com timestamps palavra por palavra, analisa a retenção e picos sonoros com IA (Google Gemini), renderiza vídeos verticais (9:16) com **legendas dinâmicas estilo TikTok/Alex Hormozi**, thumbnails automáticas e **PUBLICA AUTOMATICAMENTE NO TIKTOK** com um único comando ou toque no celular!
 
 ---
 
-## 📱 Como Usar no Celular (Passo a Passo)
+## ⚡ Novidade: Postagem 100% Automática no TikTok
 
-Você não precisa instalar bibliotecas pesadas no seu celular: a máquina/servidor processa tudo com GPU e o seu celular funciona como controle remoto completo e player nativo.
+Agora você não precisa baixar nem postar manualmente. Ao acionar o corte, o sistema:
+1. Gera os cortes em 9:16 com as legendas animadas.
+2. Extrai o título magnético e as 5 hashtags com IA.
+3. Faz o upload e publicação imediata na sua conta do TikTok via **TikTok Content Posting API v2** (ou webhook integrado para múltiplas redes como Shorts e Reels).
 
-1. **Inicie o servidor mobile no computador:**
-   ```bash
-   python run_server.py
-   ```
-   O terminal exibirá um link como:
-   ```text
-   👉 NO SEU CELULAR: http://192.168.1.X:8000
-   ```
+### Como Usar o Auto-Post:
 
-2. **Abra o link no navegador do celular (Chrome ou Safari)**
-   - Ambos os aparelhos (PC e Celular) devem estar no mesmo Wi-Fi.
+#### Pelo Celular (Interface Mobile PWA):
+1. Acesse o app no celular (`http://IP-DO-PC:8000`).
+2. Mantenha o toggle **"📲 Postar no TikTok Direto"** ativado.
+3. Cole o link e clique em **"🚀 Cortar e Publicar Automático"**.
 
-3. **Instale como Aplicativo Nativo (PWA)**:
-   - **No Android (Chrome):** Toque nos 3 pontinhos e selecione *"Adicionar à tela inicial"*.
-   - **No iPhone (Safari):** Toque no botão de compartilhar e selecione *"Adicionar à Tela de Início"*.
-
-4. **Direto do seu Celular**:
-   - Cole links de lives ou podcasts do YouTube.
-   - Escolha o número de cortes e o layout (Blur ou Split).
-   - Acompanhe a barra de progresso em tempo real.
-   - Assista aos vídeos verticais 9:16 no player.
-   - Copie títulos e hashtags com 1 toque e baixe o vídeo direto para a galeria do celular.
+#### Pelo Terminal / Linha de Comando:
+Basta adicionar a flag `--autopost`:
+```bash
+python main.py "https://www.youtube.com/watch?v=SEU_VIDEO" --autopost
+```
 
 ---
 
-## ⚡ Principais Funcionalidades
+## 🔑 Configuração das Credenciais no `.env`
 
-1. **📱 Interface Mobile-First PWA:** Desenvolvida sob medida para smartphones, fluida e com suporte a atalhos.
-2. **🎙️ Transcrição Dinâmica com Faster-Whisper:** Detecção de fala com timestamps precisos no nível de palavra (`word_timestamps`).
-3. **🧠 Análise de Viralidade e Ganchos (IA Gemini):** Identificação de trechos de até 1 minuto focados nos primeiros 3 segundos de gancho (Hook), clímax e quebra de expectativa.
-4. **🔊 Detecção de Picos de Volume Sonoro:** Mapeia gargalhadas, gritos e reações exaltadas no áudio para guiar a seleção dos melhores momentos.
-5. **📝 Legendas Dinâmicas TikTok / Hormozi (`.ass`):** Legendas estilizadas com alto contraste, caixa alta e borda escura aplicadas diretamente no vídeo.
-6. **📐 Múltiplos Layouts 9:16 (1080x1920):**
-   - `blur`: Fundo desfocado dinâmico + vídeo original centralizado nítido.
-   - `split`: Tela dividida (perfeito para streamer em cima + jogo/conteúdo embaixo).
-7. **🖼️ Gerador Automático de Capas/Thumbnails:** Extrai o frame de maior impacto para capa do TikTok.
-8. **🤖 Monitor de Canais (`channel_watcher.py`):** Modo 100% autônomo que monitora canais do YouTube e dispara o corte assim que um vídeo novo é lançado.
+No seu arquivo `.env`:
+```env
+# Chave da IA Gemini
+GEMINI_API_KEY=sua_chave_aqui
+
+# Ativar Auto-Post por padrão
+AUTO_POST=True
+
+# Token de acesso do TikTok (obtido no portal de desenvolvedores do TikTok)
+TIKTOK_ACCESS_TOKEN=seu_token_aqui
+
+# Privacidade inicial: "PUBLIC_TO_EVERYONE", "MUTUAL_FOLLOW_FRIENDS" ou "SELF_ONLY" (rascunho privado para aprovação)
+TIKTOK_PRIVACY_LEVEL=SELF_ONLY
+
+# (Opcional) Webhook para disparar automações no Make / Zapier / N8N
+WEBHOOK_PUBLISH_URL=
+```
+
+*(Se você ainda não tiver o `TIKTOK_ACCESS_TOKEN` configurado, o sistema salva o pacote pronto na pasta `storage/output/.../ready_to_post/` sem dar erro).*
 
 ---
 
@@ -54,10 +54,11 @@ Você não precisa instalar bibliotecas pesadas no seu celular: a máquina/servi
 
 ```text
 clip_farm/
-├── run_server.py             # Inicia o servidor mobile e exibe o IP local
-├── server.py                 # API FastAPI (Jobs, WebSockets/Polling e Streaming)
+├── auto_publisher.py         # Módulo de postagem automática no TikTok / Webhooks
+├── run_server.py             # Servidor Mobile PWA
+├── server.py                 # Backend FastAPI com Background Tasks e Auto-Post
 ├── static/
-│   └── index.html            # Interface Mobile-First PWA (Player 9:16 + Ações)
+│   └── index.html            # Interface Mobile com botão de Auto-Post
 ├── config.py                 # Configurações globais
 ├── downloader.py             # Download via yt-dlp e extração de áudio
 ├── transcriber.py            # Transcrição com timestamps por palavra
@@ -66,20 +67,19 @@ clip_farm/
 ├── subtitles_generator.py    # Gerador de legendas dinâmicas estilo Hormozi (.ass)
 ├── video_editor.py           # Renderização vertical 9:16 e extração de thumbnails
 ├── channel_watcher.py        # Robô monitor de canais para automação contínua
-├── main.py                   # Orquestrador via Linha de Comando (CLI)
+├── main.py                   # Orquestrador via CLI com flag --autopost
 ├── requirements.txt          # Dependências
 └── storage/
     ├── temp/                 # Arquivos temporários de processamento
-    └── output/               # Cortes, capas e postagens.json prontos
+    └── output/               # Cortes, capas, postagens.json e logs de publicação
 ```
 
 ---
 
-## ⚙️ Pré-requisitos e Instalação
+## 🚀 Instalação e Execução
 
 ```bash
-cd clip_farm
 pip install -r requirements.txt
-copy .env.example .env
+python run_server.py
 ```
-*(Adicione sua `GEMINI_API_KEY` gratuita gerada no [Google AI Studio](https://aistudio.google.com/app/apikey) no arquivo `.env`)*.
+Acesse no celular pelo endereço exibido no terminal e desfrute da esteira 100% automatizada!

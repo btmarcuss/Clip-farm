@@ -2,17 +2,26 @@ import argparse
 import json
 import os
 from pathlib import Path
-from config import OUTPUT_DIR, MAX_CLIPS, DEFAULT_LAYOUT, ENABLE_SUBTITLES
+from config import OUTPUT_DIR, MAX_CLIPS, DEFAULT_LAYOUT, ENABLE_SUBTITLES, AUTO_POST
 from downloader import download_youtube_video
 from transcriber import transcribe_audio
 from audio_analyzer import detect_audio_spikes
 from viral_analyzer import find_viral_moments
 from subtitles_generator import generate_tiktok_ass_subtitles
 from video_editor import create_vertical_clip, generate_clip_thumbnail
+from auto_publisher import publish_clip_to_tiktok
 
-def process_video(url: str, num_clips: int = MAX_CLIPS, layout: str = DEFAULT_LAYOUT, use_subtitles: bool = ENABLE_SUBTITLES):
+def process_video(
+    url: str,
+    num_clips: int = MAX_CLIPS,
+    layout: str = DEFAULT_LAYOUT,
+    use_subtitles: bool = ENABLE_SUBTITLES,
+    auto_post: bool = AUTO_POST
+):
     print("=" * 65)
     print("🚀 INICIANDO CLIP FARM AUTOMÁTICO (YouTube -> TikTok/Shorts)")
+    if auto_post:
+        print("📲 MODO AUTO-POST ATIVADO: Os cortes serão publicados no TikTok automaticamente!")
     print("=" * 65)
 
     # 1. Download do Vídeo e Extração de Áudio
@@ -70,9 +79,18 @@ def process_video(url: str, num_clips: int = MAX_CLIPS, layout: str = DEFAULT_LA
         # Geração da Capa / Thumbnail do Vídeo
         generate_clip_thumbnail(
             video_path=str(video_out_path),
-            timestamp=1.5,
+            timestamp=1.0,
             output_thumb_path=str(thumb_out_path)
         )
+
+        # 6. Postagem Automática no TikTok (se ativado)
+        post_status = None
+        if auto_post:
+            post_status = publish_clip_to_tiktok(
+                video_path=str(video_out_path),
+                title=clip.get("suggested_title", "Corte do Dia"),
+                hashtags=clip.get("hashtags", [])
+            )
 
         clip_data = {
             "clip_number": idx,
@@ -85,7 +103,8 @@ def process_video(url: str, num_clips: int = MAX_CLIPS, layout: str = DEFAULT_LA
             "suggested_title": clip.get("suggested_title", ""),
             "hook_phrase": clip.get("hook_phrase", ""),
             "reason": clip.get("reason", ""),
-            "hashtags": clip.get("hashtags", [])
+            "hashtags": clip.get("hashtags", []),
+            "auto_post_status": post_status
         }
         summary.append(clip_data)
 
@@ -95,9 +114,11 @@ def process_video(url: str, num_clips: int = MAX_CLIPS, layout: str = DEFAULT_LA
         json.dump(summary, f, ensure_ascii=False, indent=2)
 
     print("\n" + "=" * 65)
-    print(f"🎉 SUCESSO! Todos os cortes e capas foram gerados com sucesso!")
+    print(f"🎉 SUCESSO! Todos os cortes foram gerados!")
     print(f"📁 Pasta de Saída: {video_output_dir}")
     print(f"📄 Metadados de Postagem: {metadata_file}")
+    if auto_post:
+        print(f"📲 Postagem Automática finalizada para todos os cortes!")
     print("=" * 65)
 
 if __name__ == "__main__":
@@ -106,11 +127,13 @@ if __name__ == "__main__":
     parser.add_argument("--clips", "-c", type=int, default=MAX_CLIPS, help=f"Quantidade de clipes (padrão: {MAX_CLIPS})")
     parser.add_argument("--layout", "-l", choices=["blur", "split"], default=DEFAULT_LAYOUT, help="Layout do vídeo: 'blur' ou 'split'")
     parser.add_argument("--no-subs", action="store_true", help="Desativa a queima de legendas animadas")
+    parser.add_argument("--autopost", action="store_true", help="Publica automaticamente no TikTok após o corte")
 
     args = parser.parse_args()
     process_video(
         url=args.url,
         num_clips=args.clips,
         layout=args.layout,
-        use_subtitles=not args.no_subs
+        use_subtitles=not args.no_subs,
+        auto_post=args.autopost or AUTO_POST
     )

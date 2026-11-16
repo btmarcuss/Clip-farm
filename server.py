@@ -11,15 +11,16 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from config import OUTPUT_DIR, MAX_CLIPS, DEFAULT_LAYOUT, ENABLE_SUBTITLES, BASE_DIR
+from config import OUTPUT_DIR, MAX_CLIPS, DEFAULT_LAYOUT, ENABLE_SUBTITLES, AUTO_POST, BASE_DIR
 from downloader import download_youtube_video
 from audio_analyzer import detect_audio_spikes
 from transcriber import transcribe_audio
 from viral_analyzer import find_viral_moments
 from subtitles_generator import generate_tiktok_ass_subtitles
 from video_editor import create_vertical_clip, generate_clip_thumbnail
+from auto_publisher import publish_clip_to_tiktok
 
-app = FastAPI(title="Clip Farm Mobile API", version="2.0.0")
+app = FastAPI(title="Clip Farm Mobile API", version="2.1.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -29,7 +30,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Dicionário em memória para acompanhar status das tarefas em execução
 JOBS: Dict[str, Dict[str, Any]] = {}
 
 class JobRequest(BaseModel):
@@ -37,6 +37,7 @@ class JobRequest(BaseModel):
     clips: int = MAX_CLIPS
     layout: str = DEFAULT_LAYOUT
     subtitles: bool = ENABLE_SUBTITLES
+    auto_post: bool = AUTO_POST
 
 def run_job_pipeline(job_id: str, req: JobRequest):
     job = JOBS[job_id]
@@ -50,7 +51,7 @@ def run_job_pipeline(job_id: str, req: JobRequest):
 
         job["status"] = "analyzing_audio"
         job["progress"] = 30
-        job["message"] = "Analisando picos de energia e reações sonoras..."
+        job["message"] = "Mapeando picos de energia e reações sonoras..."
         spikes = detect_audio_spikes(media["audio_path"])
 
         job["status"] = "transcribing"
@@ -101,6 +102,15 @@ def run_job_pipeline(job_id: str, req: JobRequest):
                 output_thumb_path=str(t_out)
             )
 
+            post_status = None
+            if req.auto_post:
+                job["message"] = f"Postando corte #{idx} no TikTok..."
+                post_status = publish_clip_to_tiktok(
+                    video_path=str(v_out),
+                    title=clip.get("suggested_title", "Corte Viral"),
+                    hashtags=clip.get("hashtags", [])
+                )
+
             results.append({
                 "clip_number": idx,
                 "video_url": f"/api/media/{media['id']}/{clip_base}.mp4",
@@ -111,7 +121,8 @@ def run_job_pipeline(job_id: str, req: JobRequest):
                 "title": clip.get("suggested_title", "Corte Viral"),
                 "hook": clip.get("hook_phrase", ""),
                 "reason": clip.get("reason", ""),
-                "hashtags": clip.get("hashtags", [])
+                "hashtags": clip.get("hashtags", []),
+                "auto_post_status": post_status
             })
 
         # Salva metadados
@@ -120,7 +131,7 @@ def run_job_pipeline(job_id: str, req: JobRequest):
 
         job["status"] = "completed"
         job["progress"] = 100
-        job["message"] = "Cortes concluídos com sucesso!"
+        job["message"] = "Processamento concluído!" + (" Cortes postados no TikTok!" if req.auto_post else "")
         job["results"] = results
 
     except Exception as e:
@@ -149,7 +160,6 @@ def get_job(job_id: str):
 
 @app.get("/api/history")
 def get_history():
-    """Lista todos os vídeos que já foram processados na pasta storage/output."""
     history = []
     if OUTPUT_DIR.exists():
         for vid_dir in OUTPUT_DIR.iterdir():
@@ -195,17 +205,14 @@ def pwa_manifest():
         ]
     })
 
-# Serve o Frontend Mobile
 @app.get("/", response_class=HTMLResponse)
 def index_page():
     html_file = BASE_DIR / "static" / "index.html"
     if html_file.exists():
         with open(html_file, "r", encoding="utf-8") as f:
             return f.read()
-    return "<h1>Clip Farm Server Online. Frontend carregando...</h1>"
+    return "<h1>Clip Farm Server Online</h1>"
 
 if __name__ == "__main__":
     import uvicorn
-    # Escuta em 0.0.0.0 para que qualquer celular conectado no mesmo Wi-Fi possa acessar!
-    print("📱 Servidor Mobile rodando! Acesse do celular pelo endereço IP da sua máquina na porta 8000")
     uvicorn.run("server.py:app", host="0.0.0.0", port=8000, reload=True)

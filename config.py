@@ -8,7 +8,7 @@ BASE_DIR = Path(__file__).resolve().parent
 # Carrega variáveis do .env (se existir)
 load_dotenv(BASE_DIR / ".env")
 
-# Configurações de API e Modelos
+# Configurações de IA e Modelos
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "base")
 
@@ -17,11 +17,20 @@ MAX_CLIPS = int(os.getenv("MAX_CLIPS", 3))
 MIN_CLIP_DURATION = int(os.getenv("MIN_CLIP_DURATION", 30))
 MAX_CLIP_DURATION = int(os.getenv("MAX_CLIP_DURATION", 60))
 
-# Layout Padrão: "blur" (vídeo central + fundo borrado) ou "split" (tela dividida streamer + jogo/conteúdo)
+# Layout Padrão: "blur" ou "split"
 DEFAULT_LAYOUT = os.getenv("DEFAULT_LAYOUT", "blur")
 
-# Habilitar legendas automáticas animadas por padrão (True/False)
+# Habilitar legendas automáticas animadas (True/False)
 ENABLE_SUBTITLES = os.getenv("ENABLE_SUBTITLES", "True").lower() in ("true", "1", "yes")
+
+# Publicação Automática no TikTok
+# Opções de AUTO_POST: True / False
+AUTO_POST = os.getenv("AUTO_POST", "False").lower() in ("true", "1", "yes")
+TIKTOK_ACCESS_TOKEN = os.getenv("TIKTOK_ACCESS_TOKEN", "")
+# Níveis de privacidade: "PUBLIC_TO_EVERYONE", "MUTUAL_FOLLOW_FRIENDS", "SELF_ONLY"
+TIKTOK_PRIVACY_LEVEL = os.getenv("TIKTOK_PRIVACY_LEVEL", "SELF_ONLY")
+# Webhook opcional (ex: Make/Zapier/N8N) para publicar em múltiplas redes simultaneamente
+WEBHOOK_PUBLISH_URL = os.getenv("WEBHOOK_PUBLISH_URL", "")
 
 # Diretórios de armazenamento
 STORAGE_DIR = BASE_DIR / "storage"
