@@ -18,6 +18,10 @@ ENV/
 storage/temp/
 storage/output/
 
+# Executaveis locais pesados
+ffmpeg.exe
+*.exe
+
 # IDEs
 .vscode/
 .idea/
