@@ -21,7 +21,7 @@ Basta dar **duplo clique no arquivo**:
 ```text
 INICIAR_CLIP_FARM.bat
 ```
-O servidor será iniciado e o navegador abrirá automaticamente em `http://localhost:8000`!
+O servidor será iniciado e o navegador abrirá automaticamente em `http://localhost:8888`!
 
 ---
 
@@ -39,7 +39,7 @@ Você não precisa abrir arquivos no bloco de notas para configurar:
 
 Ao rodar o `INICIAR_CLIP_FARM.bat`, o terminal exibirá:
 ```text
-👉 NO SEU CELULAR: http://192.168.X.X:8000
+👉 NO SEU CELULAR: http://192.168.X.X:8888
 ```
 Basta digitar esse endereço no navegador do celular (Chrome ou Safari) conectado no mesmo Wi-Fi e adicionar à tela inicial.
 

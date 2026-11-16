@@ -13,7 +13,8 @@ from pydantic import BaseModel
 
 from config import (
     OUTPUT_DIR, MAX_CLIPS, DEFAULT_LAYOUT, ENABLE_SUBTITLES, AUTO_POST,
-    BASE_DIR, GEMINI_API_KEY, TIKTOK_ACCESS_TOKEN, TIKTOK_PRIVACY_LEVEL, WHISPER_MODEL
+    BASE_DIR, GEMINI_API_KEY, TIKTOK_ACCESS_TOKEN, TIKTOK_PRIVACY_LEVEL, WHISPER_MODEL,
+    SERVER_HOST, SERVER_PORT
 )
 from downloader import download_youtube_video
 from audio_analyzer import detect_audio_spikes
@@ -268,4 +269,4 @@ def index_page():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("server.py:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("server.py:app", host=SERVER_HOST, port=SERVER_PORT, reload=True)
