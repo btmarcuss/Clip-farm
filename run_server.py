@@ -1,5 +1,16 @@
+import os
+import sys
 import socket
 import uvicorn
+
+# Força codificação universal UTF-8 no Windows
+os.environ["PYTHONUTF8"] = "1"
+os.environ["PYTHONIOENCODING"] = "utf-8"
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 from server import app
 from config import SERVER_HOST, SERVER_PORT
 

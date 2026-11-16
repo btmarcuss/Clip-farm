@@ -7,6 +7,7 @@ def detect_audio_spikes(audio_path: str, top_n: int = 5) -> list:
     """
     Analisa o áudio usando FFmpeg silencedetect para identificar
     os momentos de maior energia sonora (gritos, gargalhadas, aplausos ou reações intensas).
+    Utiliza encoding UTF-8 com errors='replace' para evitar falhas de decodificação no Windows.
     """
     print(f"🔊 Analisando picos de energia sonora e reações no áudio...")
     
@@ -17,7 +18,15 @@ def detect_audio_spikes(audio_path: str, top_n: int = 5) -> list:
         "-f", "null", "-"
     ]
     
-    result = subprocess.run(cmd, stderr=subprocess.PIPE, stdout=subprocess.DEVNULL, text=True)
+    # encoding='utf-8' e errors='replace' evitam o erro de charmap no Windows com metadados/emojis
+    result = subprocess.run(
+        cmd,
+        stderr=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,
+        text=True,
+        encoding="utf-8",
+        errors="replace"
+    )
     
     starts = [float(m) for m in re.findall(r"silence_end: ([\d\.]+)", result.stderr)]
     
