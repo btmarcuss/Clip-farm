@@ -1,55 +1,84 @@
 import argparse
 import json
-import sys
+import os
 from pathlib import Path
-from config import OUTPUT_DIR, MAX_CLIPS
+from config import OUTPUT_DIR, MAX_CLIPS, DEFAULT_LAYOUT, ENABLE_SUBTITLES
 from downloader import download_youtube_video
 from transcriber import transcribe_audio
+from audio_analyzer import detect_audio_spikes
 from viral_analyzer import find_viral_moments
-from video_editor import create_vertical_clip
+from subtitles_generator import generate_tiktok_ass_subtitles
+from video_editor import create_vertical_clip, generate_clip_thumbnail
 
-def process_video(url: str, num_clips: int = MAX_CLIPS):
-    print("=" * 60)
-    print("🚀 INICIANDO CLIP FARM AUTOMÁTICO (YouTube -> TikTok)")
-    print("=" * 60)
+def process_video(url: str, num_clips: int = MAX_CLIPS, layout: str = DEFAULT_LAYOUT, use_subtitles: bool = ENABLE_SUBTITLES):
+    print("=" * 65)
+    print("🚀 INICIANDO CLIP FARM AUTOMÁTICO (YouTube -> TikTok/Shorts)")
+    print("=" * 65)
 
-    # 1. Download do YouTube
+    # 1. Download do Vídeo e Extração de Áudio
     media = download_youtube_video(url)
     
-    # 2. Transcrição com Timestamps
+    # 2. Picos de Volume / Reações Sonoras
+    audio_spikes = detect_audio_spikes(media["audio_path"])
+    
+    # 3. Transcrição com Timestamps por Palavra
     transcript = transcribe_audio(media["audio_path"])
     
-    # 3. Análise de Viralidade com IA
-    viral_clips = find_viral_moments(transcript, max_clips=num_clips)
+    # 4. Análise de Viralidade e Ganchos com IA
+    viral_clips = find_viral_moments(transcript, max_clips=num_clips, audio_spikes=audio_spikes)
     
-    # Subpasta para este vídeo
+    # Pasta de saída exclusiva para o vídeo
     video_output_dir = OUTPUT_DIR / media["id"]
     video_output_dir.mkdir(parents=True, exist_ok=True)
     
-    # 4. Geração dos Cortes Verticais
+    # 5. Produção dos Clipes Verticais
     print(f"\n[4/4] ✂️ Renderizando {len(viral_clips)} cortes verticais (9:16)...")
     summary = []
     
     for idx, clip in enumerate(viral_clips, 1):
-        filename = f"corte_{idx:02d}.mp4"
-        out_path = video_output_dir / filename
-        
+        clip_base_name = f"corte_{idx:02d}"
+        video_out_path = video_output_dir / f"{clip_base_name}.mp4"
+        thumb_out_path = video_output_dir / f"{clip_base_name}_thumb.jpg"
+        sub_ass_path = None
+
         print(f"\n🔹 Processando Corte #{idx} ({clip['start_time']}s até {clip['end_time']}s)")
         print(f"   Hook: \"{clip.get('hook_phrase', 'N/A')}\"")
-        print(f"   Título sugerido: {clip.get('suggested_title', '')}")
-        print(f"   Hashtags: {' '.join(clip.get('hashtags', []))}")
-        
+        print(f"   Título: {clip.get('suggested_title', '')}")
+        print(f"   Tags: {' '.join(clip.get('hashtags', []))}")
+
+        # Geração de Legendas Dinâmicas Estilo TikTok
+        if use_subtitles:
+            ass_file = video_output_dir / f"{clip_base_name}.ass"
+            sub_ass_path = generate_tiktok_ass_subtitles(
+                segments_with_words=transcript,
+                clip_start=clip["start_time"],
+                clip_end=clip["end_time"],
+                output_ass_path=str(ass_file)
+            )
+            print(f"   📝 Legendas dinâmicas geradas: {ass_file.name}")
+
+        # Renderização do Vídeo Vertical 9:16
         create_vertical_clip(
             video_path=media["video_path"],
             start_time=clip["start_time"],
             end_time=clip["end_time"],
-            output_path=str(out_path)
+            output_path=str(video_out_path),
+            subtitles_ass_path=sub_ass_path,
+            layout=layout
         )
-        
+
+        # Geração da Capa / Thumbnail do Vídeo
+        generate_clip_thumbnail(
+            video_path=str(video_out_path),
+            timestamp=1.5,
+            output_thumb_path=str(thumb_out_path)
+        )
+
         clip_data = {
             "clip_number": idx,
-            "file": filename,
-            "path": str(out_path),
+            "file": f"{clip_base_name}.mp4",
+            "thumbnail": f"{clip_base_name}_thumb.jpg",
+            "video_path": str(video_out_path),
             "start_time": clip["start_time"],
             "end_time": clip["end_time"],
             "duration": round(clip["end_time"] - clip["start_time"], 2),
@@ -60,21 +89,28 @@ def process_video(url: str, num_clips: int = MAX_CLIPS):
         }
         summary.append(clip_data)
 
-    # Salva relatório de metadados para postagem
+    # Salva relatório para postagem
     metadata_file = video_output_dir / "postagens.json"
     with open(metadata_file, "w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=False, indent=2)
 
-    print("\n" + "=" * 60)
-    print(f"🎉 SUCESSO! Cortes finalizados e salvos em:")
-    print(f"📁 {video_output_dir}")
-    print(f"📄 Metadados salvos em: {metadata_file}")
-    print("=" * 60)
+    print("\n" + "=" * 65)
+    print(f"🎉 SUCESSO! Todos os cortes e capas foram gerados com sucesso!")
+    print(f"📁 Pasta de Saída: {video_output_dir}")
+    print(f"📄 Metadados de Postagem: {metadata_file}")
+    print("=" * 65)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Automação de cortes virais para TikTok a partir do YouTube")
+    parser = argparse.ArgumentParser(description="Automação Completa de Clip Farm (YouTube para TikTok/Shorts)")
     parser.add_argument("url", help="URL do vídeo ou live do YouTube")
     parser.add_argument("--clips", "-c", type=int, default=MAX_CLIPS, help=f"Quantidade de clipes (padrão: {MAX_CLIPS})")
-    
+    parser.add_argument("--layout", "-l", choices=["blur", "split"], default=DEFAULT_LAYOUT, help="Layout do vídeo: 'blur' ou 'split'")
+    parser.add_argument("--no-subs", action="store_true", help="Desativa a queima de legendas animadas")
+
     args = parser.parse_args()
-    process_video(args.url, args.clips)
+    process_video(
+        url=args.url,
+        num_clips=args.clips,
+        layout=args.layout,
+        use_subtitles=not args.no_subs
+    )

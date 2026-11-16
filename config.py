@@ -17,6 +17,12 @@ MAX_CLIPS = int(os.getenv("MAX_CLIPS", 3))
 MIN_CLIP_DURATION = int(os.getenv("MIN_CLIP_DURATION", 30))
 MAX_CLIP_DURATION = int(os.getenv("MAX_CLIP_DURATION", 60))
 
+# Layout Padrão: "blur" (vídeo central + fundo borrado) ou "split" (tela dividida streamer + jogo/conteúdo)
+DEFAULT_LAYOUT = os.getenv("DEFAULT_LAYOUT", "blur")
+
+# Habilitar legendas automáticas animadas por padrão (True/False)
+ENABLE_SUBTITLES = os.getenv("ENABLE_SUBTITLES", "True").lower() in ("true", "1", "yes")
+
 # Diretórios de armazenamento
 STORAGE_DIR = BASE_DIR / "storage"
 TEMP_DIR = STORAGE_DIR / "temp"

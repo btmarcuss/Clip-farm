@@ -1,79 +1,80 @@
-# 🎬 Clip Farm Automático (YouTube ➡️ TikTok)
+# 🎬 Clip Farm Pro Automático (YouTube ➡️ TikTok / Reels / Shorts)
 
-Automação inteligente que baixa vídeos e transmissões ao vivo do YouTube, transcreve com Whisper, detecta os momentos com maior potencial viral usando IA (Google Gemini) e gera clipes prontos no formato vertical 9:16 (1080x1920) com duração de até 1 minuto.
+Automação inteligente e profissional para esteiras de **Clip Farm**. O sistema ingere vídeos e transmissões ao vivo do YouTube, transcreve com timestamps palavra por palavra, analisa a retenção e picos sonoros com IA (Google Gemini), e renderiza vídeos verticais (9:16) com **legendas dinâmicas estilo TikTok/Alex Hormozi**, thumbnails automáticas e relatórios de postagem.
 
 ---
 
-## 📂 Estrutura de Arquivos
+## ⚡ Principais Funcionalidades
+
+1. **Transcrição Dinâmica com Faster-Whisper:** Detecção de fala com timestamps precisos no nível de palavra (`word_timestamps`).
+2. **Análise de Viralidade e Ganchos (IA Gemini):** Identificação de trechos de até 1 minuto focados nos primeiros 3 segundos de gancho (Hook), clímax e quebra de expectativa.
+3. **Detecção de Picos de Volume Sonoro:** Mapeia gargalhadas, gritos e reações exaltadas no áudio para guiar a seleção dos melhores momentos.
+4. **Legendas Dinâmicas TikTok / Hormozi (`.ass`):** Legendas estilizadas com alto contraste, caixa alta e borda escura aplicadas diretamente no vídeo via FFmpeg.
+5. **Múltiplos Layouts 9:16 (1080x1920):**
+   - `blur`: Fundo desfocado dinâmico + vídeo original centralizado nítido.
+   - `split`: Tela dividida (perfeito para streamer em cima + jogo/conteúdo embaixo).
+6. **Gerador Automático de Capas/Thumbnails:** Extrai o frame de maior impacto para capa do TikTok.
+7. **Monitor de Canais (`channel_watcher.py`):** Modo 100% autônomo que monitora canais do YouTube e dispara o corte assim que um vídeo novo é lançado.
+
+---
+
+## 📂 Estrutura do Projeto
 
 ```text
 clip_farm/
-├── config.py             # Configurações gerais e caminhos
-├── downloader.py         # Download e extração de áudio via yt-dlp e ffmpeg
-├── transcriber.py        # Transcrição com timestamps via Faster-Whisper
-├── viral_analyzer.py     # Detecção de ganchos (hooks) e viralidade com Gemini
-├── video_editor.py       # Renderização vertical 9:16 com background blur
-├── main.py               # Script principal (CLI)
-├── requirements.txt      # Dependências Python
-├── .env.example          # Exemplo de variáveis de ambiente
+├── config.py                 # Configurações globais
+├── downloader.py             # Download via yt-dlp e extração de áudio
+├── transcriber.py            # Transcrição com timestamps por palavra
+├── audio_analyzer.py         # Detecção de picos de energia e reações sonoras
+├── viral_analyzer.py         # IA avaliando ganchos, relevância e hashtags
+├── subtitles_generator.py    # Gerador de legendas dinâmicas estilo Hormozi (.ass)
+├── video_editor.py           # Renderização vertical 9:16 e extração de thumbnails
+├── channel_watcher.py        # Robô monitor de canais para automação contínua
+├── main.py                   # Orquestrador da esteira (CLI)
+├── requirements.txt          # Dependências
+├── .env.example              # Modelo de variáveis de ambiente
 └── storage/
-    ├── temp/             # Vídeos baixados do YouTube
-    └── output/           # Cortes gerados e relatórios prontos para postar
+    ├── temp/                 # Arquivos temporários de processamento
+    └── output/               # Cortes, capas e postagens.json prontos
 ```
 
 ---
 
 ## ⚙️ Pré-requisitos
 
-1. **Python 3.10+** instalado.
-2. **FFmpeg** instalado e adicionado ao `PATH` do sistema Windows:
-   - Para verificar, abra o terminal e digite: `ffmpeg -version`
-3. Chave gratuita da API do Google Gemini:
-   - Gere em: [Google AI Studio](https://aistudio.google.com/app/apikey)
+1. **Python 3.10+**
+2. **FFmpeg** instalado no sistema e acessível pelo terminal.
+3. Chave gratuita da API do Gemini ([Google AI Studio](https://aistudio.google.com/app/apikey)).
 
 ---
 
-## 🚀 Como Instalar e Rodar
+## 🚀 Como Usar
 
-### 1. Criar e ativar o ambiente virtual (Recomendado)
-No terminal, dentro da pasta `clip_farm`:
-```bash
-python -m venv venv
-.\venv\Scripts\activate
-```
-
-### 2. Instalar as dependências
+### 1. Instalar as dependências
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Configurar a chave de API
-Copie o arquivo `.env.example` para `.env` e insira sua chave:
-```bash
-copy .env.example .env
-```
-Abra o `.env` e adicione sua chave:
+### 2. Configurar o `.env`
+Copie o `.env.example` para `.env` e coloque sua chave:
 ```env
 GEMINI_API_KEY=sua_chave_aqui
 ```
 
-### 4. Executar a Automação
-Basta passar a URL de qualquer vídeo ou gravação de live do YouTube:
-
+### 3. Gerar cortes de um vídeo do YouTube
 ```bash
-python main.py "https://www.youtube.com/watch?v=SEU_VIDEO_AQUI"
+python main.py "https://www.youtube.com/watch?v=SEU_VIDEO"
 ```
 
-Se desejar gerar uma quantidade específica de cortes (ex: 5 cortes):
+**Opções disponíveis no comando:**
+- `--clips 5`: Quantidade de cortes a serem gerados.
+- `--layout split`: Alterna para layout de tela dividida (streamer + gameplay).
+- `--no-subs`: Desativa as legendas automáticas.
+
+### 4. Modo Robô Autônomo (Watcher)
+Para deixar o robô monitorando canais e cortando vídeos novos sozinho:
+1. Abra `channel_watcher.py` e adicione os links dos canais na lista `canais_para_monitorar`.
+2. Execute:
 ```bash
-python main.py "https://www.youtube.com/watch?v=SEU_VIDEO_AQUI" --clips 5
+python channel_watcher.py
 ```
-
----
-
-## 📦 O Que é Gerado na Saída
-
-Na pasta `storage/output/<ID_DO_VIDEO>/` você encontrará:
-- `corte_01.mp4`: Vídeo vertical em 1080x1920 pronto para o TikTok.
-- `corte_02.mp4`: Segundo clipe com gancho forte.
-- `postagens.json`: Arquivo com os títulos magnéticos sugeridos, frases de abertura (hooks) e hashtags recomendadas para copiar e colar no TikTok.
