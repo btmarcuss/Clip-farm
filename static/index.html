@@ -3,23 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Clip Farm Mobile</title>
+  <title>Clip Farm Studio Pro</title>
   <link rel="manifest" href="/manifest.json" />
   <meta name="theme-color" content="#ff0050" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #0d0f12;
-      --card: #161920;
-      --card-border: #242933;
+      --bg: #0b0d11;
+      --surface: #141820;
+      --surface-border: #222734;
       --primary: #ff0050;
+      --primary-hover: #e00045;
       --secondary: #00f2fe;
-      --text: #f3f4f6;
-      --text-muted: #9ca3af;
-      --accent: #22c55e;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --success: #22c55e;
+      --card-bg: #181d28;
     }
     * {
       box-sizing: border-box;
@@ -34,74 +34,111 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
-      padding-bottom: 40px;
     }
+    /* Header / Navbar */
     header {
-      background: rgba(22, 25, 32, 0.95);
-      backdrop-filter: blur(12px);
-      padding: 16px 20px;
+      background: rgba(20, 24, 32, 0.95);
+      backdrop-filter: blur(14px);
+      padding: 14px 24px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      border-bottom: 1px solid var(--card-border);
+      border-bottom: 1px solid var(--surface-border);
       position: sticky;
       top: 0;
-      z-index: 50;
+      z-index: 100;
     }
-    .logo {
-      font-weight: 800;
-      font-size: 1.25rem;
+    .brand {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 12px;
+      font-size: 1.25rem;
+      font-weight: 800;
     }
-    .logo span {
+    .brand span {
       background: linear-gradient(135deg, var(--primary), var(--secondary));
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
-    .badge {
-      font-size: 0.7rem;
-      background: rgba(255, 0, 80, 0.15);
-      color: var(--primary);
-      padding: 4px 10px;
-      border-radius: 12px;
-      font-weight: 700;
-      border: 1px solid rgba(255, 0, 80, 0.3);
-    }
-    main {
-      padding: 16px;
-      max-width: 520px;
-      margin: 0 auto;
-      width: 100%;
+    .nav-tabs {
       display: flex;
-      flex-direction: column;
-      gap: 20px;
+      gap: 6px;
+      background: #0b0d11;
+      padding: 4px;
+      border-radius: 12px;
+      border: 1px solid var(--surface-border);
     }
-    .card {
-      background: var(--card);
-      border: 1px solid var(--card-border);
-      border-radius: 18px;
-      padding: 18px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
     }
-    h2 {
-      font-size: 1.1rem;
-      font-weight: 700;
-      margin-bottom: 14px;
+    .tab-btn.active {
+      background: var(--surface);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+
+    /* Container Principal */
+    .app-layout {
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 24px;
+      display: grid;
+      grid-template-columns: 460px 1fr;
+      gap: 24px;
+      flex: 1;
+    }
+
+    @media (max-width: 960px) {
+      .app-layout {
+        grid-template-columns: 1fr;
+        padding: 16px;
+        gap: 20px;
+      }
+    }
+
+    /* Cards e Painéis */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: 20px;
+      padding: 22px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      height: fit-content;
+    }
+    .panel-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      margin-bottom: 16px;
       display: flex;
       align-items: center;
       gap: 8px;
     }
-    .input-group {
+    .input-label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      display: block;
+    }
+    .input-row {
       display: flex;
       gap: 8px;
-      margin-bottom: 14px;
+      margin-bottom: 16px;
     }
-    input[type="url"] {
+    input[type="url"], input[type="text"], input[type="password"] {
       flex: 1;
-      background: #0d0f12;
-      border: 1px solid #2d3342;
+      background: #0b0d11;
+      border: 1px solid #282f40;
       color: #fff;
       padding: 14px 16px;
       border-radius: 12px;
@@ -109,38 +146,32 @@
       outline: none;
       transition: border-color 0.2s;
     }
-    input[type="url"]:focus {
+    input:focus {
       border-color: var(--primary);
     }
     .btn-paste {
-      background: #252b38;
+      background: #232938;
       color: #fff;
       border: none;
       padding: 0 16px;
       border-radius: 12px;
       font-weight: 600;
       cursor: pointer;
+      transition: background 0.2s;
     }
-    .options-grid {
+    .btn-paste:hover { background: #2f374a; }
+
+    .grid-options {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-bottom: 14px;
+      gap: 12px;
+      margin-bottom: 16px;
     }
-    .opt-box {
-      background: #0d0f12;
-      border: 1px solid #2d3342;
+    .select-box {
+      background: #0b0d11;
+      border: 1px solid #282f40;
       border-radius: 12px;
       padding: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .opt-box label {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      font-weight: 600;
-      text-transform: uppercase;
     }
     select {
       background: transparent;
@@ -150,29 +181,41 @@
       font-weight: 600;
       outline: none;
       width: 100%;
+      cursor: pointer;
     }
-    .toggle-row {
+
+    .toggles-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 12px 0;
+      border-top: 1px solid var(--surface-border);
+      border-bottom: 1px solid var(--surface-border);
+      margin-bottom: 20px;
+    }
+    .toggle-item {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 10px 0;
-      border-top: 1px solid #242933;
     }
+    .toggle-info h4 { font-size: 0.9rem; font-weight: 600; }
+    .toggle-info p { font-size: 0.75rem; color: var(--text-muted); }
+
     .switch {
       position: relative;
       display: inline-block;
-      width: 48px;
-      height: 26px;
+      width: 46px;
+      height: 24px;
     }
     .switch input { opacity: 0; width: 0; height: 0; }
     .slider {
       position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-      background-color: #2d3342;
+      background-color: #2b3345;
       transition: .3s;
-      border-radius: 26px;
+      border-radius: 24px;
     }
     .slider:before {
-      position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px;
+      position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px;
       background-color: white;
       transition: .3s;
       border-radius: 50%;
@@ -180,133 +223,125 @@
     input:checked + .slider { background-color: var(--primary); }
     input:checked + .slider:before { transform: translateX(22px); }
 
-    .btn-main {
+    .btn-primary {
       width: 100%;
-      background: linear-gradient(135deg, var(--primary), #e00045);
+      background: linear-gradient(135deg, var(--primary), var(--primary-hover));
       color: white;
       border: none;
       padding: 16px;
       border-radius: 14px;
       font-size: 1.05rem;
-      font-weight: 700;
+      font-weight: 800;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
-      box-shadow: 0 4px 18px rgba(255, 0, 80, 0.4);
-      margin-top: 14px;
+      gap: 10px;
+      box-shadow: 0 4px 20px rgba(255, 0, 80, 0.4);
       transition: transform 0.1s, opacity 0.2s;
     }
-    .btn-main:active { transform: scale(0.98); }
-    .btn-main:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-primary:active { transform: scale(0.98); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
     /* Progress Box */
-    .progress-box {
+    .progress-card {
       display: none;
-      background: #14171f;
-      border: 1px solid #2d3342;
+      background: #0f1218;
+      border: 1px solid var(--surface-border);
       border-radius: 16px;
       padding: 16px;
       margin-top: 16px;
     }
-    .progress-bar-bg {
+    .prog-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+    .bar-bg {
       background: #252b38;
       height: 8px;
       border-radius: 4px;
       overflow: hidden;
       margin: 10px 0;
     }
-    .progress-bar-fill {
+    .bar-fill {
       background: linear-gradient(90deg, var(--primary), var(--secondary));
       height: 100%;
       width: 0%;
       transition: width 0.4s ease;
     }
-    .status-msg {
+    .prog-msg {
       font-size: 0.85rem;
       color: var(--secondary);
       font-weight: 600;
     }
 
-    /* Clipes Gerados (Estilo TikTok Feed) */
-    .clips-feed {
+    /* Coluna Direita: Resultados e Grid de Vídeos */
+    .results-col {
       display: flex;
       flex-direction: column;
       gap: 20px;
     }
+    .feed-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+    }
     .clip-card {
-      background: var(--card);
-      border: 1px solid var(--card-border);
+      background: var(--card-bg);
+      border: 1px solid var(--surface-border);
       border-radius: 18px;
       overflow: hidden;
       display: flex;
       flex-direction: column;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.25);
     }
-    .video-container {
+    .video-wrap {
       position: relative;
       width: 100%;
-      padding-top: 177.77%; /* 9:16 Aspect Ratio */
+      padding-top: 177.77%; /* 9:16 vertical */
       background: #000;
     }
-    .video-container video {
+    .video-wrap video {
       position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
+      top: 0; left: 0; width: 100%; height: 100%;
       object-fit: cover;
     }
-    .clip-info {
+    .clip-meta {
       padding: 16px;
       display: flex;
       flex-direction: column;
       gap: 10px;
+      flex: 1;
     }
-    .clip-title {
-      font-size: 1rem;
-      font-weight: 700;
-      line-height: 1.4;
-    }
-    .clip-hook {
-      font-size: 0.85rem;
+    .hook-tag {
+      font-size: 0.8rem;
       color: #ffd700;
       background: rgba(255, 215, 0, 0.1);
       padding: 6px 10px;
       border-radius: 8px;
-      font-weight: 600;
-    }
-    .post-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 0.75rem;
-      padding: 4px 8px;
-      border-radius: 6px;
       font-weight: 700;
     }
-    .post-badge.published {
-      background: rgba(34, 197, 94, 0.2);
-      color: #22c55e;
+    .clip-heading {
+      font-size: 0.95rem;
+      font-weight: 700;
+      line-height: 1.4;
     }
-    .post-badge.queued {
-      background: rgba(0, 242, 254, 0.2);
-      color: #00f2fe;
-    }
-    .clip-tags {
+    .clip-hashtags {
       font-size: 0.8rem;
       color: var(--secondary);
     }
-    .actions-row {
+    .btn-group {
       display: flex;
-      gap: 10px;
-      margin-top: 6px;
+      gap: 8px;
+      margin-top: auto;
     }
-    .btn-action {
+    .action-btn {
       flex: 1;
-      padding: 12px;
-      border-radius: 10px;
-      font-size: 0.85rem;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 0.8rem;
       font-weight: 700;
       border: none;
       cursor: pointer;
@@ -314,101 +349,232 @@
       align-items: center;
       justify-content: center;
       gap: 6px;
+      text-decoration: none;
     }
-    .btn-copy { background: #252b38; color: #fff; }
-    .btn-download { background: var(--accent); color: #000; text-decoration: none; }
+    .copy-btn { background: #262c3c; color: #fff; }
+    .dl-btn { background: var(--success); color: #000; }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: 0.7rem;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-weight: 700;
+    }
+    .status-badge.published { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
+    .status-badge.queue { background: rgba(0, 242, 254, 0.2); color: #00f2fe; }
+
+    /* Aba Configurações */
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Toast Notification */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #181d28;
+      border: 1px solid var(--primary);
+      color: #fff;
+      padding: 14px 20px;
+      border-radius: 12px;
+      font-weight: 600;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+      display: none;
+      z-index: 999;
+      animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
 <body>
   <header>
-    <div class="logo">
-      🎬 <span>Clip Farm Mobile</span>
+    <div class="brand">
+      🎬 <span>Clip Farm Studio Pro</span>
     </div>
-    <div class="badge">Auto-Post TikTok</div>
+    <nav class="nav-tabs">
+      <button class="tab-btn active" onclick="switchTab('corte')">⚡ Criar Cortes</button>
+      <button class="tab-btn" onclick="switchTab('config')">⚙️ Configurações</button>
+      <button class="tab-btn" onclick="switchTab('historico')">📁 Histórico</button>
+    </nav>
   </header>
 
-  <main>
-    <section class="card">
-      <h2>⚡ Cortar e Postar no TikTok</h2>
-      
-      <div class="input-group">
-        <input type="url" id="youtubeUrl" placeholder="Cole o link do YouTube aqui..." />
-        <button class="btn-paste" onclick="pasteFromClipboard()">Colar</button>
+  <div class="app-layout">
+    <!-- COLUNA DA ESQUERDA: CONTROLE -->
+    <div>
+      <!-- TAB 1: CRIAR CORTES -->
+      <div id="tab-corte" class="tab-content active">
+        <section class="panel">
+          <h2 class="panel-title">🚀 Gerador de Clipes Virais</h2>
+
+          <label class="input-label">URL do Vídeo ou Live do YouTube</label>
+          <div class="input-row">
+            <input type="url" id="youtubeUrl" placeholder="https://www.youtube.com/watch?v=..." />
+            <button class="btn-paste" onclick="pasteClipboard()">Colar</button>
+          </div>
+
+          <div class="grid-options">
+            <div class="select-box">
+              <label class="input-label">Quantidade</label>
+              <select id="clipsCount">
+                <option value="1">1 corte</option>
+                <option value="3" selected>3 cortes</option>
+                <option value="5">5 cortes</option>
+              </select>
+            </div>
+            <div class="select-box">
+              <label class="input-label">Enquadramento</label>
+              <select id="layout">
+                <option value="blur" selected>Fundo Borrado</option>
+                <option value="split">Tela Dividida (Split)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="toggles-list">
+            <div class="toggle-item">
+              <div class="toggle-info">
+                <h4>Legendas TikTok / Hormozi</h4>
+                <p>Palavra por palavra animada em alta retenção</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="subtitlesToggle" checked />
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div class="toggle-item">
+              <div class="toggle-info">
+                <h4 style="color:var(--secondary);">📲 Postar no TikTok Automaticamente</h4>
+                <p>Publica direto na conta ao terminar o corte</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="autopostToggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <button class="btn-primary" id="startBtn" onclick="startCutProcess()">
+            ✂️ Gerar Cortes Virais
+          </button>
+
+          <div class="progress-card" id="progressCard">
+            <div class="prog-header">
+              <span id="pStatus">Processando...</span>
+              <span id="pPercent">0%</span>
+            </div>
+            <div class="bar-bg">
+              <div class="bar-fill" id="pBar"></div>
+            </div>
+            <div class="prog-msg" id="pMsg">Iniciando tarefas...</div>
+          </div>
+        </section>
       </div>
 
-      <div class="options-grid">
-        <div class="opt-box">
-          <label>Quantidade</label>
-          <select id="clipsCount">
-            <option value="1">1 corte</option>
-            <option value="3" selected>3 cortes</option>
-            <option value="5">5 cortes</option>
-          </select>
-        </div>
-        <div class="opt-box">
-          <label>Layout</label>
-          <select id="layout">
-            <option value="blur" selected>Fundo Borrado</option>
-            <option value="split">Tela Dividida</option>
-          </select>
-        </div>
+      <!-- TAB 2: CONFIGURAÇÕES -->
+      <div id="tab-config" class="tab-content">
+        <section class="panel">
+          <h2 class="panel-title">⚙️ Configurações & Chaves</h2>
+          
+          <label class="input-label">Chave Google Gemini API</label>
+          <div class="input-row">
+            <input type="password" id="cfgGeminiKey" placeholder="Cole sua chave AI Studio aqui..." />
+          </div>
+
+          <label class="input-label">Token TikTok Content Posting API</label>
+          <div class="input-row">
+            <input type="password" id="cfgTikTokToken" placeholder="Token de acesso do TikTok..." />
+          </div>
+
+          <div class="grid-options">
+            <div class="select-box">
+              <label class="input-label">Privacidade TikTok</label>
+              <select id="cfgPrivacy">
+                <option value="SELF_ONLY">Rascunho Privado</option>
+                <option value="PUBLIC_TO_EVERYONE">Público para Todos</option>
+                <option value="MUTUAL_FOLLOW_FRIENDS">Apenas Amigos</option>
+              </select>
+            </div>
+            <div class="select-box">
+              <label class="input-label">Modelo Whisper</label>
+              <select id="cfgWhisper">
+                <option value="base" selected>Base (Ultra Rápido)</option>
+                <option value="small">Small (Equilibrado)</option>
+                <option value="medium">Medium (Alta Precisão)</option>
+              </select>
+            </div>
+          </div>
+
+          <button class="btn-primary" onclick="saveConfiguration()" style="background:#22c55e;">
+            💾 Salvar Configurações
+          </button>
+        </section>
       </div>
 
-      <div class="toggle-row">
-        <div>
-          <div style="font-weight: 600; font-size: 0.9rem;">Legendas TikTok</div>
-          <div style="font-size: 0.75rem; color: var(--text-muted);">Estilo Hormozi animado</div>
-        </div>
-        <label class="switch">
-          <input type="checkbox" id="subtitlesToggle" checked />
-          <span class="slider"></span>
-        </label>
+      <!-- TAB 3: HISTÓRICO -->
+      <div id="tab-historico" class="tab-content">
+        <section class="panel">
+          <h2 class="panel-title">📁 Vídeos Anteriores</h2>
+          <div id="historyList" style="display:flex; flex-direction:column; gap:12px;"></div>
+        </section>
+      </div>
+    </div>
+
+    <!-- COLUNA DA DIREITA: PREVIEW DOS CORTES EM 9:16 -->
+    <div class="results-col">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h2 style="font-size:1.2rem; font-weight:800;">✨ Clipes Prontos para Postagem</h2>
+        <span style="font-size:0.8rem; color:var(--text-muted);" id="clipsCountLabel"></span>
       </div>
 
-      <div class="toggle-row">
-        <div>
-          <div style="font-weight: 600; font-size: 0.9rem; color: #00f2fe;">📲 Postar no TikTok Direto</div>
-          <div style="font-size: 0.75rem; color: var(--text-muted);">Publica assim que cortar</div>
+      <div class="feed-grid" id="clipsFeed">
+        <!-- Clipes inseridos dinamicamente aqui -->
+        <div style="grid-column: 1/-1; padding: 40px; text-align: center; color: var(--text-muted); background: var(--surface); border-radius: 18px; border: 1px dashed var(--surface-border);">
+          Nenhum corte gerado no momento. Cole um link à esquerda e clique em <b>Gerar Cortes Virais</b>!
         </div>
-        <label class="switch">
-          <input type="checkbox" id="autopostToggle" checked />
-          <span class="slider"></span>
-        </label>
       </div>
+    </div>
+  </div>
 
-      <button class="btn-main" id="startBtn" onclick="startGeneration()">
-        🚀 Cortar e Publicar Automático
-      </button>
-
-      <div class="progress-box" id="progressBox">
-        <div style="display:flex; justify-content:space-between; font-size:0.85rem;">
-          <span id="statusLabel">Iniciando...</span>
-          <span id="percentLabel">0%</span>
-        </div>
-        <div class="progress-bar-bg">
-          <div class="progress-bar-fill" id="progressBar"></div>
-        </div>
-        <div class="status-msg" id="statusMsg">Processando pipeline...</div>
-      </div>
-    </section>
-
-    <!-- Área de Exibição dos Cortes Prontos -->
-    <section class="clips-feed" id="clipsFeed"></section>
-  </main>
+  <div id="toast"></div>
 
   <script>
-    async function pasteFromClipboard() {
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.innerText = msg;
+      t.style.display = 'block';
+      setTimeout(() => { t.style.display = 'none'; }, 3500);
+    }
+
+    function switchTab(name) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      
+      const activeBtn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.innerText.toLowerCase().includes(name));
+      if (activeBtn) activeBtn.classList.add('active');
+      document.getElementById(`tab-${name}`).classList.add('active');
+
+      if (name === 'config') loadConfiguration();
+      if (name === 'historico') loadHistory();
+    }
+
+    async function pasteClipboard() {
       try {
         const text = await navigator.clipboard.readText();
-        if (text) document.getElementById('youtubeUrl').value = text;
+        if (text) {
+          document.getElementById('youtubeUrl').value = text;
+          showToast("Link colado!");
+        }
       } catch (err) {
-        alert("Permita o acesso à área de transferência ou cole manualmente.");
+        showToast("Cole o link manualmente no campo.");
       }
     }
 
-    async function startGeneration() {
+    async function startCutProcess() {
       const url = document.getElementById('youtubeUrl').value.trim();
-      if (!url) return alert("Por favor, cole um link do YouTube!");
+      if (!url) return showToast("⚠️ Cole uma URL válida do YouTube!");
 
       const clips = parseInt(document.getElementById('clipsCount').value);
       const layout = document.getElementById('layout').value;
@@ -416,14 +582,14 @@
       const auto_post = document.getElementById('autopostToggle').checked;
 
       const btn = document.getElementById('startBtn');
-      const progressBox = document.getElementById('progressBox');
-      const progressBar = document.getElementById('progressBar');
-      const statusLabel = document.getElementById('statusLabel');
-      const percentLabel = document.getElementById('percentLabel');
-      const statusMsg = document.getElementById('statusMsg');
+      const card = document.getElementById('progressCard');
+      const bar = document.getElementById('pBar');
+      const pPercent = document.getElementById('pPercent');
+      const pStatus = document.getElementById('pStatus');
+      const pMsg = document.getElementById('pMsg');
 
       btn.disabled = true;
-      progressBox.style.display = 'block';
+      card.style.display = 'block';
 
       try {
         const res = await fetch('/api/jobs', {
@@ -435,94 +601,152 @@
         const jobId = data.job_id;
 
         const interval = setInterval(async () => {
-          const statusRes = await fetch(`/api/jobs/${jobId}`);
-          const job = await statusRes.json();
+          const sRes = await fetch(`/api/jobs/${jobId}`);
+          const job = await sRes.json();
 
-          progressBar.style.width = job.progress + '%';
-          percentLabel.innerText = job.progress + '%';
-          statusLabel.innerText = job.status.toUpperCase();
-          statusMsg.innerText = job.message;
+          bar.style.width = job.progress + '%';
+          pPercent.innerText = job.progress + '%';
+          pStatus.innerText = job.status.toUpperCase();
+          pMsg.innerText = job.message;
 
           if (job.status === 'completed') {
             clearInterval(interval);
             btn.disabled = false;
             renderClips(job.results);
+            showToast("🎉 Clipes gerados com sucesso!");
           } else if (job.status === 'failed') {
             clearInterval(interval);
             btn.disabled = false;
-            alert(job.message);
+            showToast("❌ Erro: " + job.message);
           }
         }, 2000);
 
       } catch (err) {
         btn.disabled = false;
-        alert("Erro ao conectar com o servidor: " + err);
+        showToast("Erro ao conectar ao servidor!");
       }
     }
 
     function renderClips(results) {
       const feed = document.getElementById('clipsFeed');
-      feed.innerHTML = '<h2 style="margin-top:10px;">✨ Clipes Gerados & Postados:</h2>';
+      if (!results || results.length === 0) return;
+      feed.innerHTML = '';
 
       results.forEach(c => {
-        let postHtml = '';
+        let badge = '';
         if (c.auto_post_status) {
           if (c.auto_post_status.status === 'published') {
-            postHtml = '<span class="post-badge published">✅ Postado no TikTok</span>';
+            badge = '<span class="status-badge published">✅ TikTok Postado</span>';
           } else {
-            postHtml = '<span class="post-badge queued">⏳ Fila de Postagem Ativa</span>';
+            badge = '<span class="status-badge queue">⏳ Fila Ativa</span>';
           }
         }
 
-        const card = document.createElement('div');
-        card.className = 'clip-card';
-        card.innerHTML = `
-          <div class="video-container">
-            <video controls playsinline poster="${c.thumb_url}" preload="metadata">
+        const div = document.createElement('div');
+        div.className = 'clip-card';
+        div.innerHTML = `
+          <div class="video-wrap">
+            <video controls playsinline preload="metadata" poster="${c.thumb_url}">
               <source src="${c.video_url}" type="video/mp4" />
             </video>
           </div>
-          <div class="clip-info">
+          <div class="clip-meta">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-              <span class="clip-hook">🎯 Hook: "${c.hook || 'Momento Viral'}"</span>
-              ${postHtml}
+              <span class="hook-tag">🎯 Gancho (${c.duration}s)</span>
+              ${badge}
             </div>
-            <div class="clip-title">${c.title}</div>
-            <div class="clip-tags">${c.hashtags.join(' ')}</div>
-            <div class="actions-row">
-              <button class="btn-action btn-copy" onclick="copyMeta('${escapeHtml(c.title)}', '${escapeHtml(c.hashtags.join(' '))}')">
+            <div class="clip-heading">${c.title}</div>
+            <div class="clip-hashtags">${c.hashtags.join(' ')}</div>
+            <div class="btn-group">
+              <button class="action-btn copy-btn" onclick="copyMeta('${escapeJs(c.title)}', '${escapeJs(c.hashtags.join(' '))}')">
                 📋 Copiar Texto
               </button>
-              <a href="${c.video_url}" download="tiktok_clip.mp4" class="btn-action btn-download">
-                ⬇️ Baixar Vídeo
+              <a href="${c.video_url}" download="corte_tiktok.mp4" class="action-btn dl-btn">
+                ⬇️ Baixar
               </a>
             </div>
           </div>
         `;
-        feed.appendChild(card);
+        feed.appendChild(div);
       });
-
-      feed.scrollIntoView({ behavior: 'smooth' });
     }
 
     function copyMeta(title, tags) {
-      const text = `${title}\n\n${tags}`;
-      navigator.clipboard.writeText(text);
-      alert("✅ Título e hashtags copiados!");
+      navigator.clipboard.writeText(`${title}\n\n${tags}`);
+      showToast("✅ Título e hashtags copiados!");
     }
 
-    function escapeHtml(text) {
-      return text.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    function escapeJs(str) {
+      return (str || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    }
+
+    async function loadConfiguration() {
+      try {
+        const res = await fetch('/api/config');
+        const data = await res.json();
+        if (data.privacy) document.getElementById('cfgPrivacy').value = data.privacy;
+        if (data.whisper_model) document.getElementById('cfgWhisper').value = data.whisper_model;
+        if (data.has_gemini_key) document.getElementById('cfgGeminiKey').placeholder = "•••••••••••••••• (Chave Salva)";
+        if (data.has_tiktok_token) document.getElementById('cfgTikTokToken').placeholder = "•••••••••••••••• (Token Salvo)";
+      } catch (e) {}
+    }
+
+    async function saveConfiguration() {
+      const gemini_key = document.getElementById('cfgGeminiKey').value.trim();
+      const tiktok_token = document.getElementById('cfgTikTokToken').value.trim();
+      const privacy = document.getElementById('cfgPrivacy').value;
+      const whisper_model = document.getElementById('cfgWhisper').value;
+
+      try {
+        const res = await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ gemini_key, tiktok_token, privacy, whisper_model })
+        });
+        const data = await res.json();
+        showToast(data.message);
+      } catch (e) {
+        showToast("Erro ao salvar configurações.");
+      }
+    }
+
+    async function loadHistory() {
+      const hist = document.getElementById('historyList');
+      hist.innerHTML = '<div style="color:var(--text-muted);">Carregando histórico...</div>';
+      try {
+        const res = await fetch('/api/history');
+        const data = await res.json();
+        if (!data || data.length === 0) {
+          hist.innerHTML = '<div style="color:var(--text-muted);">Nenhum histórico encontrado.</div>';
+          return;
+        }
+        hist.innerHTML = '';
+        data.forEach(item => {
+          const box = document.createElement('div');
+          box.style.background = '#0b0d11';
+          box.style.padding = '12px';
+          box.style.borderRadius = '10px';
+          box.style.border = '1px solid var(--surface-border)';
+          box.innerHTML = `
+            <div style="font-weight:700; font-size:0.9rem;">ID: ${item.video_id}</div>
+            <div style="font-size:0.8rem; color:var(--text-muted); margin:4px 0;">Total de cortes: ${item.clips_count}</div>
+            <button class="action-btn copy-btn" style="width:100%; margin-top:8px;" onclick='renderClips(${JSON.stringify(item.clips)})'>
+              👁️ Ver Estes Cortes
+            </button>
+          `;
+          hist.appendChild(box);
+        });
+      } catch (e) {
+        hist.innerHTML = 'Erro ao carregar histórico.';
+      }
     }
 
     window.addEventListener('load', async () => {
       try {
         const res = await fetch('/api/history');
         const history = await res.json();
-        if (history.length > 0) {
-          const allClips = [];
-          history.forEach(h => { if (h.clips) allClips.push(...h.clips); });
-          if (allClips.length > 0) renderClips(allClips.slice(-3));
+        if (history.length > 0 && history[0].clips) {
+          renderClips(history[0].clips);
         }
       } catch (e) {}
     });

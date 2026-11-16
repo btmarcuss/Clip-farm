@@ -1,25 +1,24 @@
 import subprocess
 import re
 from pathlib import Path
+from ffmpeg_helper import get_ffmpeg_exe
 
 def detect_audio_spikes(audio_path: str, top_n: int = 5) -> list:
     """
-    Analisa o áudio usando FFmpeg silencedetect e astats para identificar
+    Analisa o áudio usando FFmpeg silencedetect para identificar
     os momentos de maior energia sonora (gritos, gargalhadas, aplausos ou reações intensas).
-    Retorna uma lista de intervalos em segundos com alta probabilidade de reação.
     """
     print(f"🔊 Analisando picos de energia sonora e reações no áudio...")
     
-    # Executa análise de volume e picos com FFmpeg
+    ffmpeg_bin = get_ffmpeg_exe()
     cmd = [
-        "ffmpeg", "-i", str(audio_path),
+        ffmpeg_bin, "-i", str(audio_path),
         "-af", "silencedetect=noise=-30dB:d=0.5",
         "-f", "null", "-"
     ]
     
     result = subprocess.run(cmd, stderr=subprocess.PIPE, stdout=subprocess.DEVNULL, text=True)
     
-    # Extrai onde o silêncio terminou (início de falas/gritos intensos)
     starts = [float(m) for m in re.findall(r"silence_end: ([\d\.]+)", result.stderr)]
     
     spikes = []

@@ -3,6 +3,7 @@ import subprocess
 from pathlib import Path
 import yt_dlp
 from config import TEMP_DIR
+from ffmpeg_helper import get_ffmpeg_exe
 
 def download_youtube_video(url: str) -> dict:
     """
@@ -31,8 +32,9 @@ def download_youtube_video(url: str) -> dict:
     print(f"🎬 Vídeo baixado: {video_path}")
     print(f"🎵 Extraindo áudio mono 16kHz para transcrição rápida...")
     
+    ffmpeg_bin = get_ffmpeg_exe()
     cmd_audio = [
-        "ffmpeg", "-y",
+        ffmpeg_bin, "-y",
         "-i", str(video_path),
         "-vn",
         "-acodec", "pcm_s16le",

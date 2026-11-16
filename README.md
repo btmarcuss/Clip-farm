@@ -1,85 +1,85 @@
-# 🎬 Clip Farm Pro (YouTube ➡️ TikTok / Reels / Shorts) + 📲 Auto-Post TikTok
+# 🎬 Clip Farm Studio Pro (Desktop + 📱 Mobile PWA + 📲 Auto-Post TikTok)
 
-Automação inteligente e profissional para esteiras de **Clip Farm**. O sistema ingere vídeos e transmissões ao vivo do YouTube, transcreve com timestamps palavra por palavra, analisa a retenção e picos sonoros com IA (Google Gemini), renderiza vídeos verticais (9:16) com **legendas dinâmicas estilo TikTok/Alex Hormozi**, thumbnails automáticas e **PUBLICA AUTOMATICAMENTE NO TIKTOK** com um único comando ou toque no celular!
+Automação completa e profissional para esteiras de **Clip Farm**. O sistema ingere vídeos e lives do YouTube, transcreve com Faster-Whisper, detecta os momentos de maior retenção com IA (Google Gemini), renderiza em 9:16 vertical com **legendas dinâmicas estilo TikTok/Alex Hormozi**, thumbnails automáticas e **PUBLICA AUTOMATICAMENTE NO TIKTOK** com 1 clique!
 
 ---
 
-## ⚡ Novidade: Postagem 100% Automática no TikTok
+## 💻 Versão Desktop & 📱 Versão Mobile (Tudo em Um)
 
-Agora você não precisa baixar nem postar manualmente. Ao acionar o corte, o sistema:
-1. Gera os cortes em 9:16 com as legendas animadas.
-2. Extrai o título magnético e as 5 hashtags com IA.
-3. Faz o upload e publicação imediata na sua conta do TikTok via **TikTok Content Posting API v2** (ou webhook integrado para múltiplas redes como Shorts e Reels).
+O projeto foi desenhado de forma adaptativa e intuitiva:
+- **No Desktop:** Painel Widescreen completo em 2 colunas com controle total, abas de configuração visual das chaves de API, monitor de progresso e visualizador de vídeos lado a lado.
+- **No Celular:** Interface touch fluida estilo TikTok PWA instalável na tela inicial.
+- **No Terminal (CLI):** Comando tradicional via linha de comando para automações em scripts ou cronjobs.
 
-### Como Usar o Auto-Post:
+---
 
-#### Pelo Celular (Interface Mobile PWA):
-1. Acesse o app no celular (`http://IP-DO-PC:8000`).
-2. Mantenha o toggle **"📲 Postar no TikTok Direto"** ativado.
-3. Cole o link e clique em **"🚀 Cortar e Publicar Automático"**.
+## ⚡ Como Iniciar no Computador (1 Clique)
 
-#### Pelo Terminal / Linha de Comando:
-Basta adicionar a flag `--autopost`:
+Neste computador, **todas as dependências já estão instaladas e configuradas**!
+
+Basta dar **duplo clique no arquivo**:
+```text
+INICIAR_CLIP_FARM.bat
+```
+O servidor será iniciado e o navegador abrirá automaticamente em `http://localhost:8000`!
+
+---
+
+## ⚙️ Configuração Visual Direto na Tela
+
+Você não precisa abrir arquivos no bloco de notas para configurar:
+1. Abra a aplicação e clique na aba **"⚙️ Configurações"**.
+2. Cole sua chave gratuita do **Google Gemini API** (gerada no [Google AI Studio](https://aistudio.google.com/app/apikey)).
+3. Cole o token do TikTok (se desejar a publicação 100% automática).
+4. Clique em **"💾 Salvar Configurações"**.
+
+---
+
+## 📱 Como Usar no Celular
+
+Ao rodar o `INICIAR_CLIP_FARM.bat`, o terminal exibirá:
+```text
+👉 NO SEU CELULAR: http://192.168.X.X:8000
+```
+Basta digitar esse endereço no navegador do celular (Chrome ou Safari) conectado no mesmo Wi-Fi e adicionar à tela inicial.
+
+---
+
+## 🖥️ Uso via Linha de Comando (CLI Desktop)
+
+Se preferir utilizar via terminal:
 ```bash
+# Corte básico
+python main.py "https://www.youtube.com/watch?v=SEU_VIDEO"
+
+# Corte com publicação automática direta no TikTok
 python main.py "https://www.youtube.com/watch?v=SEU_VIDEO" --autopost
+
+# Tela dividida (streamer + gameplay)
+python main.py "https://www.youtube.com/watch?v=SEU_VIDEO" --layout split --clips 5
 ```
 
 ---
 
-## 🔑 Configuração das Credenciais no `.env`
-
-No seu arquivo `.env`:
-```env
-# Chave da IA Gemini
-GEMINI_API_KEY=sua_chave_aqui
-
-# Ativar Auto-Post por padrão
-AUTO_POST=True
-
-# Token de acesso do TikTok (obtido no portal de desenvolvedores do TikTok)
-TIKTOK_ACCESS_TOKEN=seu_token_aqui
-
-# Privacidade inicial: "PUBLIC_TO_EVERYONE", "MUTUAL_FOLLOW_FRIENDS" ou "SELF_ONLY" (rascunho privado para aprovação)
-TIKTOK_PRIVACY_LEVEL=SELF_ONLY
-
-# (Opcional) Webhook para disparar automações no Make / Zapier / N8N
-WEBHOOK_PUBLISH_URL=
-```
-
-*(Se você ainda não tiver o `TIKTOK_ACCESS_TOKEN` configurado, o sistema salva o pacote pronto na pasta `storage/output/.../ready_to_post/` sem dar erro).*
-
----
-
-## 📂 Estrutura do Projeto
+## 📂 Arquivos do Projeto
 
 ```text
 clip_farm/
-├── auto_publisher.py         # Módulo de postagem automática no TikTok / Webhooks
-├── run_server.py             # Servidor Mobile PWA
-├── server.py                 # Backend FastAPI com Background Tasks e Auto-Post
+├── INICIAR_CLIP_FARM.bat     # Executável de 1 clique no Windows
+├── INSTALAR_ATUALIZAR.bat    # Instalador automático de dependências
+├── run_server.py             # Inicializador do servidor com detecção de IP
+├── server.py                 # Backend FastAPI com Background Tasks e API de Config
 ├── static/
-│   └── index.html            # Interface Mobile com botão de Auto-Post
-├── config.py                 # Configurações globais
+│   └── index.html            # Dashboard Responsivo (Desktop Widescreen + Mobile PWA)
+├── ffmpeg_helper.py          # Auto-detecção do binário do FFmpeg
 ├── downloader.py             # Download via yt-dlp e extração de áudio
-├── transcriber.py            # Transcrição com timestamps por palavra
-├── audio_analyzer.py         # Detecção de picos de energia e reações sonoras
-├── viral_analyzer.py         # IA avaliando ganchos, relevância e hashtags
-├── subtitles_generator.py    # Gerador de legendas dinâmicas estilo Hormozi (.ass)
-├── video_editor.py           # Renderização vertical 9:16 e extração de thumbnails
-├── channel_watcher.py        # Robô monitor de canais para automação contínua
-├── main.py                   # Orquestrador via CLI com flag --autopost
-├── requirements.txt          # Dependências
-└── storage/
-    ├── temp/                 # Arquivos temporários de processamento
-    └── output/               # Cortes, capas, postagens.json e logs de publicação
+├── transcriber.py            # Transcrição Faster-Whisper com timestamps
+├── audio_analyzer.py         # Detecção de picos de energia sonoros
+├── viral_analyzer.py         # IA avaliando retenção, ganchos e hashtags
+├── subtitles_generator.py    # Geração de legendas animadas (.ass)
+├── video_editor.py           # Renderização vertical 9:16 e thumbnails
+├── auto_publisher.py         # Publicação direta na TikTok API e Webhooks
+├── channel_watcher.py        # Robô autônomo monitor de canais
+├── main.py                   # CLI Desktop tradicional
+└── requirements.txt          # Dependências Python
 ```
-
----
-
-## 🚀 Instalação e Execução
-
-```bash
-pip install -r requirements.txt
-python run_server.py
-```
-Acesse no celular pelo endereço exibido no terminal e desfrute da esteira 100% automatizada!

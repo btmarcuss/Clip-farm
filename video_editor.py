@@ -1,5 +1,6 @@
 import subprocess
 from pathlib import Path
+from ffmpeg_helper import get_ffmpeg_exe
 
 def create_vertical_clip(
     video_path: str,
@@ -18,9 +19,9 @@ def create_vertical_clip(
     duration = round(end_time - start_time, 2)
     out_file = Path(output_path)
     out_file.parent.mkdir(parents=True, exist_ok=True)
+    ffmpeg_bin = get_ffmpeg_exe()
 
     if layout == "split":
-        # Tela dividida: Metade de cima e metade de baixo
         video_filters = (
             "[0:v]crop=in_w/2:in_h:0:0,scale=1080:960[top];"
             "[0:v]crop=in_w/2:in_h:in_w/2:0,scale=1080:960[bottom];"
@@ -28,7 +29,6 @@ def create_vertical_clip(
         )
         base_label = "[vbase]"
     else:
-        # Layout padrão "blur": fundo borrado + vídeo no centro
         video_filters = (
             "[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=25:5[bg];"
             "[0:v]scale=1080:-1[fg];"
@@ -36,16 +36,14 @@ def create_vertical_clip(
         )
         base_label = "[vbase]"
 
-    # Se tiver legenda ASS para queimar
     if subtitles_ass_path and Path(subtitles_ass_path).exists():
-        # Formata o caminho do arquivo para o filtro do FFmpeg no Windows
         ass_path_escaped = str(Path(subtitles_ass_path).resolve()).replace("\\", "/").replace(":", "\\:")
         filter_complex = f"{video_filters};{base_label}subtitles='{ass_path_escaped}'[v]"
     else:
         filter_complex = f"{video_filters};{base_label}copy[v]"
 
     cmd = [
-        "ffmpeg", "-y",
+        ffmpeg_bin, "-y",
         "-ss", str(start_time),
         "-i", str(video_path),
         "-t", str(duration),
@@ -68,8 +66,9 @@ def generate_clip_thumbnail(video_path: str, timestamp: float, output_thumb_path
     Extrai um frame estático de alta resolução (1080x1920) para servir de capa/thumbnail do TikTok.
     """
     out_file = Path(output_thumb_path)
+    ffmpeg_bin = get_ffmpeg_exe()
     cmd = [
-        "ffmpeg", "-y",
+        ffmpeg_bin, "-y",
         "-ss", str(timestamp),
         "-i", str(video_path),
         "-vframes", "1",
