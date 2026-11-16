@@ -1,20 +1,52 @@
-# 🎬 Clip Farm Pro Automático (YouTube ➡️ TikTok / Reels / Shorts)
+# 🎬 Clip Farm Pro (YouTube ➡️ TikTok / Reels / Shorts) + 📱 Mobile PWA
 
 Automação inteligente e profissional para esteiras de **Clip Farm**. O sistema ingere vídeos e transmissões ao vivo do YouTube, transcreve com timestamps palavra por palavra, analisa a retenção e picos sonoros com IA (Google Gemini), e renderiza vídeos verticais (9:16) com **legendas dinâmicas estilo TikTok/Alex Hormozi**, thumbnails automáticas e relatórios de postagem.
+
+**Agora com suporte completo para CELULAR (PWA / Web Mobile)!** Você pode controlar toda a esteira direto do seu smartphone Android ou iPhone.
+
+---
+
+## 📱 Como Usar no Celular (Passo a Passo)
+
+Você não precisa instalar bibliotecas pesadas no seu celular: a máquina/servidor processa tudo com GPU e o seu celular funciona como controle remoto completo e player nativo.
+
+1. **Inicie o servidor mobile no computador:**
+   ```bash
+   python run_server.py
+   ```
+   O terminal exibirá um link como:
+   ```text
+   👉 NO SEU CELULAR: http://192.168.1.X:8000
+   ```
+
+2. **Abra o link no navegador do celular (Chrome ou Safari)**
+   - Ambos os aparelhos (PC e Celular) devem estar no mesmo Wi-Fi.
+
+3. **Instale como Aplicativo Nativo (PWA)**:
+   - **No Android (Chrome):** Toque nos 3 pontinhos e selecione *"Adicionar à tela inicial"*.
+   - **No iPhone (Safari):** Toque no botão de compartilhar e selecione *"Adicionar à Tela de Início"*.
+
+4. **Direto do seu Celular**:
+   - Cole links de lives ou podcasts do YouTube.
+   - Escolha o número de cortes e o layout (Blur ou Split).
+   - Acompanhe a barra de progresso em tempo real.
+   - Assista aos vídeos verticais 9:16 no player.
+   - Copie títulos e hashtags com 1 toque e baixe o vídeo direto para a galeria do celular.
 
 ---
 
 ## ⚡ Principais Funcionalidades
 
-1. **Transcrição Dinâmica com Faster-Whisper:** Detecção de fala com timestamps precisos no nível de palavra (`word_timestamps`).
-2. **Análise de Viralidade e Ganchos (IA Gemini):** Identificação de trechos de até 1 minuto focados nos primeiros 3 segundos de gancho (Hook), clímax e quebra de expectativa.
-3. **Detecção de Picos de Volume Sonoro:** Mapeia gargalhadas, gritos e reações exaltadas no áudio para guiar a seleção dos melhores momentos.
-4. **Legendas Dinâmicas TikTok / Hormozi (`.ass`):** Legendas estilizadas com alto contraste, caixa alta e borda escura aplicadas diretamente no vídeo via FFmpeg.
-5. **Múltiplos Layouts 9:16 (1080x1920):**
+1. **📱 Interface Mobile-First PWA:** Desenvolvida sob medida para smartphones, fluida e com suporte a atalhos.
+2. **🎙️ Transcrição Dinâmica com Faster-Whisper:** Detecção de fala com timestamps precisos no nível de palavra (`word_timestamps`).
+3. **🧠 Análise de Viralidade e Ganchos (IA Gemini):** Identificação de trechos de até 1 minuto focados nos primeiros 3 segundos de gancho (Hook), clímax e quebra de expectativa.
+4. **🔊 Detecção de Picos de Volume Sonoro:** Mapeia gargalhadas, gritos e reações exaltadas no áudio para guiar a seleção dos melhores momentos.
+5. **📝 Legendas Dinâmicas TikTok / Hormozi (`.ass`):** Legendas estilizadas com alto contraste, caixa alta e borda escura aplicadas diretamente no vídeo.
+6. **📐 Múltiplos Layouts 9:16 (1080x1920):**
    - `blur`: Fundo desfocado dinâmico + vídeo original centralizado nítido.
    - `split`: Tela dividida (perfeito para streamer em cima + jogo/conteúdo embaixo).
-6. **Gerador Automático de Capas/Thumbnails:** Extrai o frame de maior impacto para capa do TikTok.
-7. **Monitor de Canais (`channel_watcher.py`):** Modo 100% autônomo que monitora canais do YouTube e dispara o corte assim que um vídeo novo é lançado.
+7. **🖼️ Gerador Automático de Capas/Thumbnails:** Extrai o frame de maior impacto para capa do TikTok.
+8. **🤖 Monitor de Canais (`channel_watcher.py`):** Modo 100% autônomo que monitora canais do YouTube e dispara o corte assim que um vídeo novo é lançado.
 
 ---
 
@@ -22,6 +54,10 @@ Automação inteligente e profissional para esteiras de **Clip Farm**. O sistema
 
 ```text
 clip_farm/
+├── run_server.py             # Inicia o servidor mobile e exibe o IP local
+├── server.py                 # API FastAPI (Jobs, WebSockets/Polling e Streaming)
+├── static/
+│   └── index.html            # Interface Mobile-First PWA (Player 9:16 + Ações)
 ├── config.py                 # Configurações globais
 ├── downloader.py             # Download via yt-dlp e extração de áudio
 ├── transcriber.py            # Transcrição com timestamps por palavra
@@ -30,9 +66,8 @@ clip_farm/
 ├── subtitles_generator.py    # Gerador de legendas dinâmicas estilo Hormozi (.ass)
 ├── video_editor.py           # Renderização vertical 9:16 e extração de thumbnails
 ├── channel_watcher.py        # Robô monitor de canais para automação contínua
-├── main.py                   # Orquestrador da esteira (CLI)
+├── main.py                   # Orquestrador via Linha de Comando (CLI)
 ├── requirements.txt          # Dependências
-├── .env.example              # Modelo de variáveis de ambiente
 └── storage/
     ├── temp/                 # Arquivos temporários de processamento
     └── output/               # Cortes, capas e postagens.json prontos
@@ -40,41 +75,11 @@ clip_farm/
 
 ---
 
-## ⚙️ Pré-requisitos
+## ⚙️ Pré-requisitos e Instalação
 
-1. **Python 3.10+**
-2. **FFmpeg** instalado no sistema e acessível pelo terminal.
-3. Chave gratuita da API do Gemini ([Google AI Studio](https://aistudio.google.com/app/apikey)).
-
----
-
-## 🚀 Como Usar
-
-### 1. Instalar as dependências
 ```bash
+cd clip_farm
 pip install -r requirements.txt
+copy .env.example .env
 ```
-
-### 2. Configurar o `.env`
-Copie o `.env.example` para `.env` e coloque sua chave:
-```env
-GEMINI_API_KEY=sua_chave_aqui
-```
-
-### 3. Gerar cortes de um vídeo do YouTube
-```bash
-python main.py "https://www.youtube.com/watch?v=SEU_VIDEO"
-```
-
-**Opções disponíveis no comando:**
-- `--clips 5`: Quantidade de cortes a serem gerados.
-- `--layout split`: Alterna para layout de tela dividida (streamer + gameplay).
-- `--no-subs`: Desativa as legendas automáticas.
-
-### 4. Modo Robô Autônomo (Watcher)
-Para deixar o robô monitorando canais e cortando vídeos novos sozinho:
-1. Abra `channel_watcher.py` e adicione os links dos canais na lista `canais_para_monitorar`.
-2. Execute:
-```bash
-python channel_watcher.py
-```
+*(Adicione sua `GEMINI_API_KEY` gratuita gerada no [Google AI Studio](https://aistudio.google.com/app/apikey) no arquivo `.env`)*.
