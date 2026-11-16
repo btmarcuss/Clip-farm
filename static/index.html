@@ -134,6 +134,7 @@
       padding: 22px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.3);
       height: fit-content;
+      margin-bottom: 20px;
     }
     .panel-title {
       font-size: 1.15rem;
@@ -198,6 +199,23 @@
       outline: none;
       width: 100%;
       cursor: pointer;
+    }
+
+    /* TikTok Connection Status Bar */
+    .tiktok-status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: #0d1017;
+      border: 1px solid #232b3b;
+      margin-bottom: 16px;
+      font-size: 0.85rem;
+    }
+    .tiktok-status-bar.connected {
+      border-color: rgba(34, 197, 94, 0.4);
+      background: rgba(34, 197, 94, 0.08);
     }
 
     .toggles-list {
@@ -271,7 +289,7 @@
     .bar-fill { background: linear-gradient(90deg, var(--primary), var(--secondary)); height: 100%; width: 0%; transition: width 0.4s ease; }
     .prog-msg { font-size: 0.85rem; color: var(--secondary); font-weight: 600; }
 
-    /* Terminal Embutido no Site */
+    /* Terminal Embutido */
     .terminal-window {
       background: #080a0e;
       border: 1px solid #1c2230;
@@ -292,14 +310,24 @@
       align-items: center;
       margin-bottom: 10px;
     }
-    .term-dots {
-      display: flex;
-      gap: 6px;
-    }
+    .term-dots { display: flex; gap: 6px; }
     .dot { width: 10px; height: 10px; border-radius: 50%; }
     .dot.red { background: #ef4444; }
     .dot.yellow { background: #f59e0b; }
     .dot.green { background: #10b981; }
+
+    /* Instructions Box */
+    .guide-box {
+      background: #0b0e14;
+      border: 1px dashed #262e3d;
+      border-radius: 12px;
+      padding: 14px;
+      margin-top: 10px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+    .guide-box ol { margin-left: 20px; margin-top: 6px; }
 
     /* Grid de Vídeos */
     .results-col { display: flex; flex-direction: column; gap: 20px; }
@@ -341,7 +369,7 @@
       <nav class="nav-tabs">
         <button class="tab-btn active" onclick="switchTab('corte')">⚡ Criar Cortes</button>
         <button class="tab-btn" onclick="switchTab('terminal')">💻 Terminal Logs</button>
-        <button class="tab-btn" onclick="switchTab('config')">⚙️ Configurações</button>
+        <button class="tab-btn" onclick="switchTab('config')">⚙️ Configurações / Login</button>
         <button class="tab-btn" onclick="switchTab('historico')">📁 Histórico</button>
       </nav>
 
@@ -357,6 +385,14 @@
       <div id="tab-corte" class="tab-content active">
         <section class="panel">
           <h2 class="panel-title">🚀 Gerador de Clipes Virais</h2>
+
+          <!-- Status do TikTok -->
+          <div class="tiktok-status-bar" id="tiktokStatusBar">
+            <span id="tiktokStatusText">⚪ Verificando conta TikTok...</span>
+            <button class="action-btn" id="tiktokActionBtn" style="flex:none; padding:4px 10px; font-size:0.75rem;" onclick="switchTab('config')">
+              Conectar
+            </button>
+          </div>
 
           <label class="input-label">URL do Vídeo ou Live do YouTube</label>
           <div class="input-row">
@@ -397,7 +433,7 @@
             <div class="toggle-item">
               <div class="toggle-info">
                 <h4 style="color:var(--secondary);">📲 Postar no TikTok Automaticamente</h4>
-                <p>Publica direto na conta ao terminar o corte</p>
+                <p>Publica direto na conta conectada ao terminar o corte</p>
               </div>
               <label class="switch">
                 <input type="checkbox" id="autopostToggle" />
@@ -438,19 +474,53 @@
         </section>
       </div>
 
-      <!-- TAB 3: CONFIGURAÇÕES -->
+      <!-- TAB 3: CONFIGURAÇÕES & LOGIN TIKTOK -->
       <div id="tab-config" class="tab-content">
+        <!-- BLOCO LOGIN DO TIKTOK -->
+        <section class="panel" style="border-color: rgba(255, 0, 80, 0.4);">
+          <h2 class="panel-title" style="color:var(--primary);">
+            📱 Conectar Login do TikTok
+          </h2>
+          <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:14px;">
+            Conecte sua conta para que os clipes sejam postados 100% no automático.
+          </p>
+
+          <label class="input-label">Opção 1: Session ID do TikTok (Recomendado & Direto)</label>
+          <div class="input-row">
+            <input type="password" id="tiktokSessionId" placeholder="Cole seu cookie sessionid do TikTok aqui..." />
+            <button class="action-btn dl-btn" style="flex:none; padding:0 16px;" onclick="connectTikTokSession()">
+              Conectar
+            </button>
+          </div>
+
+          <div class="guide-box">
+            <b>💡 Como pegar seu Session ID em 15 segundos:</b>
+            <ol>
+              <li>Abra o <b>tiktok.com</b> no seu navegador e faça login na sua conta.</li>
+              <li>Pressione <b>F12</b> no teclado (Ferramentas de Desenvolvedor).</li>
+              <li>Vá na aba <b>Aplicativo</b> (ou Armazenamento) &gt; <b>Cookies</b> &gt; <b>https://www.tiktok.com</b>.</li>
+              <li>Procure o cookie com o nome <b>sessionid</b>, dê duplo clique no valor, copie e cole acima!</li>
+            </ol>
+          </div>
+
+          <div style="margin: 16px 0; border-top: 1px dashed var(--surface-border);"></div>
+
+          <label class="input-label">Opção 2: Token de Desenvolvedor (TikTok API Oficial)</label>
+          <div class="input-row">
+            <input type="password" id="cfgTikTokToken" placeholder="Token de acesso oficial da API do TikTok..." />
+            <button class="action-btn copy-btn" style="flex:none; padding:0 16px;" onclick="connectTikTokToken()">
+              Salvar Token
+            </button>
+          </div>
+        </section>
+
+        <!-- BLOCO CONFIGURAÇÕES GERAIS -->
         <section class="panel">
-          <h2 class="panel-title">⚙️ Configurações & Chaves</h2>
+          <h2 class="panel-title">⚙️ Chaves & Modelos de IA</h2>
           
           <label class="input-label">Chave Google Gemini API</label>
           <div class="input-row">
             <input type="password" id="cfgGeminiKey" placeholder="Cole sua chave AI Studio aqui..." />
-          </div>
-
-          <label class="input-label">Token TikTok Content Posting API</label>
-          <div class="input-row">
-            <input type="password" id="cfgTikTokToken" placeholder="Token de acesso do TikTok..." />
           </div>
 
           <div class="grid-options">
@@ -473,7 +543,7 @@
           </div>
 
           <button class="btn-primary" onclick="saveConfiguration()" style="background:#22c55e;">
-            💾 Salvar Configurações
+            💾 Salvar Configurações Gerais
           </button>
         </section>
       </div>
@@ -519,9 +589,89 @@
       if (activeBtn) activeBtn.classList.add('active');
       document.getElementById(`tab-${name}`).classList.add('active');
 
-      if (name === 'config') loadConfiguration();
+      if (name === 'config') { loadConfiguration(); checkTikTokStatus(); }
       if (name === 'historico') loadHistory();
       if (name === 'terminal') fetchLogs();
+    }
+
+    async function checkTikTokStatus() {
+      try {
+        const res = await fetch('/api/tiktok/status');
+        const data = await res.json();
+        const bar = document.getElementById('tiktokStatusBar');
+        const text = document.getElementById('tiktokStatusText');
+        const btn = document.getElementById('tiktokActionBtn');
+
+        if (data.connected) {
+          bar.classList.add('connected');
+          text.innerHTML = `🟢 <b>TikTok Conectado:</b> @${data.username}`;
+          btn.innerText = "Desconectar";
+          btn.onclick = disconnectTikTok;
+          btn.style.background = "rgba(239, 68, 68, 0.2)";
+          btn.style.color = "#ef4444";
+        } else {
+          bar.classList.remove('connected');
+          text.innerHTML = `⚪ <b>TikTok Desconectado:</b> Login necessário para auto-post`;
+          btn.innerText = "Conectar";
+          btn.onclick = () => switchTab('config');
+          btn.style.background = "";
+          btn.style.color = "";
+        }
+      } catch (e) {}
+    }
+
+    async function connectTikTokSession() {
+      const sid = document.getElementById('tiktokSessionId').value.trim();
+      if (!sid) return showToast("Cole o sessionid do TikTok!");
+
+      try {
+        const res = await fetch('/api/tiktok/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: sid })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast("🎉 " + data.message);
+          document.getElementById('tiktokSessionId').value = "";
+          checkTikTokStatus();
+        } else {
+          showToast("❌ " + (data.detail || "Erro ao conectar"));
+        }
+      } catch (e) {
+        showToast("Erro ao conectar conta.");
+      }
+    }
+
+    async function connectTikTokToken() {
+      const token = document.getElementById('cfgTikTokToken').value.trim();
+      if (!token) return showToast("Cole o token da API!");
+
+      try {
+        const res = await fetch('/api/tiktok/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ access_token: token })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast("🎉 " + data.message);
+          checkTikTokStatus();
+        } else {
+          showToast("❌ " + data.detail);
+        }
+      } catch (e) {
+        showToast("Erro ao salvar token.");
+      }
+    }
+
+    async function disconnectTikTok() {
+      if (!confirm("Deseja realmente desconectar a conta do TikTok?")) return;
+      try {
+        await fetch('/api/tiktok/logout', { method: 'POST' });
+        showToast("Conta desconectada.");
+        checkTikTokStatus();
+      } catch (e) {}
     }
 
     async function pasteClipboard() {
@@ -654,7 +804,6 @@
       } catch (e) {}
     }
 
-    // Polling de logs a cada 3 segundos
     setInterval(() => {
       const termTab = document.getElementById('tab-terminal');
       if (termTab && termTab.classList.contains('active')) {
@@ -685,7 +834,6 @@
         if (data.privacy) document.getElementById('cfgPrivacy').value = data.privacy;
         if (data.whisper_model) document.getElementById('cfgWhisper').value = data.whisper_model;
         if (data.has_gemini_key) document.getElementById('cfgGeminiKey').placeholder = "•••••••••••••••• (Chave Salva)";
-        if (data.has_tiktok_token) document.getElementById('cfgTikTokToken').placeholder = "•••••••••••••••• (Token Salvo)";
       } catch (e) {}
     }
 
@@ -740,6 +888,7 @@
     }
 
     window.addEventListener('load', async () => {
+      checkTikTokStatus();
       try {
         const res = await fetch('/api/history');
         const history = await res.json();

@@ -27,6 +27,7 @@ from viral_analyzer import find_viral_moments
 from subtitles_generator import generate_tiktok_ass_subtitles
 from video_editor import create_vertical_clip, generate_clip_thumbnail
 from auto_publisher import publish_clip_to_tiktok
+from tiktok_auth import get_tiktok_session, save_tiktok_session, remove_tiktok_session, verify_tiktok_sessionid
 
 app = FastAPI(title="Clip Farm Studio Pro", version="2.3.0")
 
@@ -197,6 +198,60 @@ def get_job(job_id: str):
     if job_id not in JOBS:
         raise HTTPException(status_code=404, detail="Job não encontrado")
     return JOBS[job_id]
+
+class TikTokLoginRequest(BaseModel):
+    session_id: str = ""
+    access_token: str = ""
+
+@app.get("/api/tiktok/status")
+def tiktok_status():
+    """Retorna se há uma conta do TikTok conectada e os dados do usuário."""
+    session = get_tiktok_session()
+    has_session = bool(session.get("session_id"))
+    has_token = bool(session.get("access_token") or os.getenv("TIKTOK_ACCESS_TOKEN", ""))
+    
+    return {
+        "connected": has_session or has_token,
+        "method": "session_id" if has_session else ("api_token" if has_token else "none"),
+        "username": session.get("username", "Conta Conectada" if (has_session or has_token) else ""),
+        "nickname": session.get("nickname", "Criador TikTok")
+    }
+
+@app.post("/api/tiktok/login")
+def tiktok_login(req: TikTokLoginRequest):
+    """Realiza a conexão da conta do TikTok via Session ID ou Access Token."""
+    sid = req.session_id.strip()
+    token = req.access_token.strip()
+
+    if sid:
+        verification = verify_tiktok_sessionid(sid)
+        if verification["valid"]:
+            save_tiktok_session(
+                session_id=sid,
+                username=verification.get("username", "conectado")
+            )
+            log_event(f"🔑 Conta do TikTok conectada com sucesso (@{verification.get('username')})")
+            return {
+                "success": True,
+                "message": f"Conectado com sucesso como @{verification.get('username')}!",
+                "username": verification.get("username")
+            }
+        else:
+            raise HTTPException(status_code=400, detail=verification.get("error", "Session ID inválido"))
+
+    if token:
+        save_tiktok_session(access_token=token)
+        log_event("🔑 Token de API do TikTok salvo e ativado.")
+        return {"success": True, "message": "Token de API do TikTok conectado com sucesso!"}
+
+    raise HTTPException(status_code=400, detail="Forneça um Session ID ou um Access Token do TikTok.")
+
+@app.post("/api/tiktok/logout")
+def tiktok_logout():
+    """Desconecta a conta do TikTok."""
+    remove_tiktok_session()
+    log_event("🚪 Conta do TikTok desconectada.")
+    return {"success": True, "message": "Conta desconectada com sucesso."}
 
 @app.get("/api/logs")
 def get_logs():
