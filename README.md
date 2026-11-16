@@ -13,15 +13,18 @@ O projeto foi desenhado de forma adaptativa e intuitiva:
 
 ---
 
-## ⚡ Como Iniciar no Computador (1 Clique)
+## ⚡ Como Iniciar no Computador (100% Silencioso)
 
 Neste computador, **todas as dependências já estão instaladas e configuradas**!
 
 Basta dar **duplo clique no arquivo**:
 ```text
-INICIAR_CLIP_FARM.bat
+INICIAR_CLIP_FARM.bat  (ou INICIAR_SILENCIOSO.vbs)
 ```
-O servidor será iniciado e o navegador abrirá automaticamente em `http://localhost:8888`!
+- O servidor sobe em segundo plano **sem abrir nenhuma janela preta de terminal**.
+- O navegador abrirá automaticamente em `http://localhost:8888`.
+- Todos os logs, status de download, Whisper e FFmpeg aparecem na aba **"💻 Terminal Logs"** dentro do próprio site!
+- Para encerrar o servidor, basta clicar no botão vermelho **"🛑 Desligar Servidor"** no topo da página.
 
 ---
 

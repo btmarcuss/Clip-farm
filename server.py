@@ -1,9 +1,13 @@
 import os
+import sys
+import time
+import signal
 import uuid
 import threading
 import json
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, List
+from collections import deque
 
 from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
@@ -24,7 +28,7 @@ from subtitles_generator import generate_tiktok_ass_subtitles
 from video_editor import create_vertical_clip, generate_clip_thumbnail
 from auto_publisher import publish_clip_to_tiktok
 
-app = FastAPI(title="Clip Farm Studio Pro", version="2.2.0")
+app = FastAPI(title="Clip Farm Studio Pro", version="2.3.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,6 +37,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Buffer de Logs em memória (armazena os últimos 200 eventos do terminal)
+MAX_LOGS = 200
+SYSTEM_LOGS = deque(maxlen=MAX_LOGS)
+
+def log_event(message: str):
+    timestamp = time.strftime("%H:%M:%S")
+    entry = f"[{timestamp}] {message}"
+    SYSTEM_LOGS.append(entry)
+    print(entry)
 
 JOBS: Dict[str, Dict[str, Any]] = {}
 
@@ -52,27 +66,36 @@ class ConfigUpdate(BaseModel):
 def run_job_pipeline(job_id: str, req: JobRequest):
     job = JOBS[job_id]
     try:
+        log_event(f"🚀 Iniciando processamento do job #{job_id} para URL: {req.url}")
         job["status"] = "downloading"
         job["progress"] = 15
-        job["message"] = "1/4 📥 Baixando vídeo e extraindo áudio do YouTube..."
+        job["message"] = "1/4 📥 Baixando vídeo e áudio do YouTube..."
+        log_event("📥 Baixando vídeo do YouTube em até 1080p...")
         media = download_youtube_video(req.url)
         job["video_id"] = media["id"]
         job["title"] = media["title"]
+        log_event(f"🎬 Vídeo baixado: '{media['title']}' (ID: {media['id']})")
 
         job["status"] = "analyzing_audio"
         job["progress"] = 30
         job["message"] = "2/4 🔊 Mapeando picos de energia e reações sonoras..."
+        log_event("🔊 Analisando amplitude de áudio e momentos de grito/risada...")
         spikes = detect_audio_spikes(media["audio_path"])
+        log_event(f"⚡ Picos de som detectados: {len(spikes)} momentos-chave.")
 
         job["status"] = "transcribing"
         job["progress"] = 50
-        job["message"] = "2/4 🎙️ Transcrevendo com Whisper IA (palavra por palavra)..."
+        job["message"] = "2/4 🎙️ Transcrevendo com Faster-Whisper IA..."
+        log_event("🎙️ Transcrevendo áudio com timestamps por palavra...")
         transcript = transcribe_audio(media["audio_path"])
+        log_event(f"✅ Transcrição concluída: {len(transcript)} segmentos de fala mapeados.")
 
         job["status"] = "ai_thinking"
         job["progress"] = 70
         job["message"] = "3/4 🧠 IA Gemini selecionando os momentos de maior retenção..."
+        log_event("🧠 Solicitando à IA Gemini a análise de ganchos (hooks) e retenção viral...")
         viral_clips = find_viral_moments(transcript, max_clips=req.clips, audio_spikes=spikes)
+        log_event(f"🎯 IA selecionou {len(viral_clips)} cortes com alto potencial viral.")
 
         job["status"] = "rendering"
         job["progress"] = 85
@@ -88,6 +111,8 @@ def run_job_pipeline(job_id: str, req: JobRequest):
             t_out = video_output_dir / f"{clip_base}_thumb.jpg"
             sub_path = None
 
+            log_event(f"✂️ Renderizando Corte #{idx} ({clip['start_time']}s até {clip['end_time']}s) - Layout: {req.layout}")
+
             if req.subtitles:
                 ass_file = video_output_dir / f"{clip_base}.ass"
                 sub_path = generate_tiktok_ass_subtitles(
@@ -96,6 +121,7 @@ def run_job_pipeline(job_id: str, req: JobRequest):
                     clip_end=clip["end_time"],
                     output_ass_path=str(ass_file)
                 )
+                log_event(f"📝 Legendas dinâmicas estilo Hormozi geradas para corte #{idx}")
 
             create_vertical_clip(
                 video_path=media["video_path"],
@@ -114,12 +140,14 @@ def run_job_pipeline(job_id: str, req: JobRequest):
 
             post_status = None
             if req.auto_post:
+                log_event(f"📲 Postando Corte #{idx} no TikTok automaticamente...")
                 job["message"] = f"📲 Postando corte #{idx} no TikTok..."
                 post_status = publish_clip_to_tiktok(
                     video_path=str(v_out),
                     title=clip.get("suggested_title", "Corte Viral"),
                     hashtags=clip.get("hashtags", [])
                 )
+                log_event(f"✅ Status da postagem do corte #{idx}: {post_status.get('status')}")
 
             results.append({
                 "clip_number": idx,
@@ -142,11 +170,14 @@ def run_job_pipeline(job_id: str, req: JobRequest):
         job["progress"] = 100
         job["message"] = "Processamento concluído!" + (" Cortes postados no TikTok!" if req.auto_post else "")
         job["results"] = results
+        log_event(f"🎉 Job #{job_id} concluído com sucesso total! Clipes salvos em: {video_output_dir.name}")
 
     except Exception as e:
+        err_msg = f"Erro no processamento: {str(e)}"
         job["status"] = "failed"
         job["progress"] = 0
-        job["message"] = f"Erro no processamento: {str(e)}"
+        job["message"] = err_msg
+        log_event(f"❌ [FALHA] {err_msg}")
 
 @app.post("/api/jobs")
 def create_job(req: JobRequest, background_tasks: BackgroundTasks):
@@ -166,6 +197,23 @@ def get_job(job_id: str):
     if job_id not in JOBS:
         raise HTTPException(status_code=404, detail="Job não encontrado")
     return JOBS[job_id]
+
+@app.get("/api/logs")
+def get_logs():
+    """Retorna os logs em tempo real para exibir no terminal embutido do site."""
+    return list(SYSTEM_LOGS)
+
+@app.post("/api/shutdown")
+def shutdown_server():
+    """Desliga o servidor graciosamente a partir do site."""
+    log_event("🛑 Comando de desligamento recebido do site. Encerrando servidor em 1 segundo...")
+    
+    def do_exit():
+        time.sleep(1.2)
+        os._exit(0)
+
+    threading.Thread(target=do_exit, daemon=True).start()
+    return {"success": True, "message": "Servidor desligando. Você já pode fechar esta aba."}
 
 @app.get("/api/history")
 def get_history():
@@ -189,20 +237,15 @@ def get_history():
 
 @app.get("/api/config")
 def get_app_config():
-    """Retorna o status atual das configurações sem expor o segredo completo."""
-    env_file = BASE_DIR / ".env"
-    gemini_set = bool(os.getenv("GEMINI_API_KEY", ""))
-    tiktok_set = bool(os.getenv("TIKTOK_ACCESS_TOKEN", ""))
     return {
-        "has_gemini_key": gemini_set,
-        "has_tiktok_token": tiktok_set,
+        "has_gemini_key": bool(os.getenv("GEMINI_API_KEY", "")),
+        "has_tiktok_token": bool(os.getenv("TIKTOK_ACCESS_TOKEN", "")),
         "privacy": os.getenv("TIKTOK_PRIVACY_LEVEL", "SELF_ONLY"),
         "whisper_model": os.getenv("WHISPER_MODEL", "base")
     }
 
 @app.post("/api/config")
 def save_app_config(cfg: ConfigUpdate):
-    """Permite atualizar as chaves de API direto pela interface visual."""
     env_file = BASE_DIR / ".env"
     lines = []
     if env_file.exists():
@@ -237,6 +280,7 @@ def save_app_config(cfg: ConfigUpdate):
     with open(env_file, "w", encoding="utf-8") as f:
         f.writelines(new_lines)
 
+    log_event("⚙️ Configurações de API salvas via painel web.")
     return {"success": True, "message": "Configurações salvas com sucesso!"}
 
 @app.get("/api/media/{video_id}/{filename}")

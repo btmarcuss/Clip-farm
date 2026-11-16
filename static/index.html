@@ -7,7 +7,7 @@
   <link rel="manifest" href="/manifest.json" />
   <meta name="theme-color" content="#ff0050" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg: #0b0d11;
@@ -19,6 +19,7 @@
       --text: #f8fafc;
       --text-muted: #94a3b8;
       --success: #22c55e;
+      --danger: #ef4444;
       --card-bg: #181d28;
     }
     * {
@@ -35,11 +36,10 @@
       display: flex;
       flex-direction: column;
     }
-    /* Header / Navbar */
     header {
       background: rgba(20, 24, 32, 0.95);
       backdrop-filter: blur(14px);
-      padding: 14px 24px;
+      padding: 12px 24px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -52,13 +52,18 @@
       display: flex;
       align-items: center;
       gap: 12px;
-      font-size: 1.25rem;
+      font-size: 1.2rem;
       font-weight: 800;
     }
     .brand span {
       background: linear-gradient(135deg, var(--primary), var(--secondary));
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
     .nav-tabs {
       display: flex;
@@ -72,7 +77,7 @@
       background: transparent;
       border: none;
       color: var(--text-muted);
-      padding: 8px 16px;
+      padding: 8px 14px;
       border-radius: 8px;
       font-size: 0.85rem;
       font-weight: 600;
@@ -84,8 +89,25 @@
       color: #fff;
       box-shadow: 0 2px 8px rgba(0,0,0,0.4);
     }
+    .btn-shutdown {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--danger);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.2s;
+    }
+    .btn-shutdown:hover {
+      background: var(--danger);
+      color: white;
+    }
 
-    /* Container Principal */
     .app-layout {
       max-width: 1400px;
       width: 100%;
@@ -105,7 +127,6 @@
       }
     }
 
-    /* Cards e Painéis */
     .panel {
       background: var(--surface);
       border: 1px solid var(--surface-border);
@@ -146,9 +167,7 @@
       outline: none;
       transition: border-color 0.2s;
     }
-    input:focus {
-      border-color: var(--primary);
-    }
+    input:focus { border-color: var(--primary); }
     .btn-paste {
       background: #232938;
       color: #fff;
@@ -157,10 +176,7 @@
       border-radius: 12px;
       font-weight: 600;
       cursor: pointer;
-      transition: background 0.2s;
     }
-    .btn-paste:hover { background: #2f374a; }
-
     .grid-options {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -238,9 +254,7 @@
       justify-content: center;
       gap: 10px;
       box-shadow: 0 4px 20px rgba(255, 0, 80, 0.4);
-      transition: transform 0.1s, opacity 0.2s;
     }
-    .btn-primary:active { transform: scale(0.98); }
     .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
     /* Progress Box */
@@ -252,140 +266,69 @@
       padding: 16px;
       margin-top: 16px;
     }
-    .prog-header {
+    .prog-header { display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 700; }
+    .bar-bg { background: #252b38; height: 8px; border-radius: 4px; overflow: hidden; margin: 10px 0; }
+    .bar-fill { background: linear-gradient(90deg, var(--primary), var(--secondary)); height: 100%; width: 0%; transition: width 0.4s ease; }
+    .prog-msg { font-size: 0.85rem; color: var(--secondary); font-weight: 600; }
+
+    /* Terminal Embutido no Site */
+    .terminal-window {
+      background: #080a0e;
+      border: 1px solid #1c2230;
+      border-radius: 14px;
+      padding: 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      color: #38bdf8;
+      max-height: 480px;
+      min-height: 280px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      line-height: 1.6;
+    }
+    .terminal-header {
       display: flex;
       justify-content: space-between;
-      font-size: 0.85rem;
-      font-weight: 700;
-    }
-    .bar-bg {
-      background: #252b38;
-      height: 8px;
-      border-radius: 4px;
-      overflow: hidden;
-      margin: 10px 0;
-    }
-    .bar-fill {
-      background: linear-gradient(90deg, var(--primary), var(--secondary));
-      height: 100%;
-      width: 0%;
-      transition: width 0.4s ease;
-    }
-    .prog-msg {
-      font-size: 0.85rem;
-      color: var(--secondary);
-      font-weight: 600;
-    }
-
-    /* Coluna Direita: Resultados e Grid de Vídeos */
-    .results-col {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
-    .feed-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 20px;
-    }
-    .clip-card {
-      background: var(--card-bg);
-      border: 1px solid var(--surface-border);
-      border-radius: 18px;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.25);
-    }
-    .video-wrap {
-      position: relative;
-      width: 100%;
-      padding-top: 177.77%; /* 9:16 vertical */
-      background: #000;
-    }
-    .video-wrap video {
-      position: absolute;
-      top: 0; left: 0; width: 100%; height: 100%;
-      object-fit: cover;
-    }
-    .clip-meta {
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      flex: 1;
-    }
-    .hook-tag {
-      font-size: 0.8rem;
-      color: #ffd700;
-      background: rgba(255, 215, 0, 0.1);
-      padding: 6px 10px;
-      border-radius: 8px;
-      font-weight: 700;
-    }
-    .clip-heading {
-      font-size: 0.95rem;
-      font-weight: 700;
-      line-height: 1.4;
-    }
-    .clip-hashtags {
-      font-size: 0.8rem;
-      color: var(--secondary);
-    }
-    .btn-group {
-      display: flex;
-      gap: 8px;
-      margin-top: auto;
-    }
-    .action-btn {
-      flex: 1;
-      padding: 10px;
-      border-radius: 8px;
-      font-size: 0.8rem;
-      font-weight: 700;
-      border: none;
-      cursor: pointer;
-      display: flex;
       align-items: center;
-      justify-content: center;
-      gap: 6px;
-      text-decoration: none;
+      margin-bottom: 10px;
     }
+    .term-dots {
+      display: flex;
+      gap: 6px;
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot.red { background: #ef4444; }
+    .dot.yellow { background: #f59e0b; }
+    .dot.green { background: #10b981; }
+
+    /* Grid de Vídeos */
+    .results-col { display: flex; flex-direction: column; gap: 20px; }
+    .feed-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+    .clip-card { background: var(--card-bg); border: 1px solid var(--surface-border); border-radius: 18px; overflow: hidden; display: flex; flex-direction: column; }
+    .video-wrap { position: relative; width: 100%; padding-top: 177.77%; background: #000; }
+    .video-wrap video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+    .clip-meta { padding: 16px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+    .hook-tag { font-size: 0.8rem; color: #ffd700; background: rgba(255, 215, 0, 0.1); padding: 6px 10px; border-radius: 8px; font-weight: 700; }
+    .clip-heading { font-size: 0.95rem; font-weight: 700; line-height: 1.4; }
+    .clip-hashtags { font-size: 0.8rem; color: var(--secondary); }
+    .btn-group { display: flex; gap: 8px; margin-top: auto; }
+    .action-btn { flex: 1; padding: 10px; border-radius: 8px; font-size: 0.8rem; font-weight: 700; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; }
     .copy-btn { background: #262c3c; color: #fff; }
     .dl-btn { background: var(--success); color: #000; }
 
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
-      font-size: 0.7rem;
-      padding: 3px 8px;
-      border-radius: 6px;
-      font-weight: 700;
-    }
+    .status-badge { display: inline-flex; align-items: center; font-size: 0.7rem; padding: 3px 8px; border-radius: 6px; font-weight: 700; }
     .status-badge.published { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
     .status-badge.queue { background: rgba(0, 242, 254, 0.2); color: #00f2fe; }
 
-    /* Aba Configurações */
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
-    /* Toast Notification */
     #toast {
-      position: fixed;
-      bottom: 24px;
-      right: 24px;
-      background: #181d28;
-      border: 1px solid var(--primary);
-      color: #fff;
-      padding: 14px 20px;
-      border-radius: 12px;
-      font-weight: 600;
-      box-shadow: 0 8px 30px rgba(0,0,0,0.5);
-      display: none;
-      z-index: 999;
-      animation: fadeIn 0.3s ease;
+      position: fixed; bottom: 24px; right: 24px; background: #181d28;
+      border: 1px solid var(--primary); color: #fff; padding: 14px 20px;
+      border-radius: 12px; font-weight: 600; box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+      display: none; z-index: 999;
     }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
 <body>
@@ -393,15 +336,22 @@
     <div class="brand">
       🎬 <span>Clip Farm Studio Pro</span>
     </div>
-    <nav class="nav-tabs">
-      <button class="tab-btn active" onclick="switchTab('corte')">⚡ Criar Cortes</button>
-      <button class="tab-btn" onclick="switchTab('config')">⚙️ Configurações</button>
-      <button class="tab-btn" onclick="switchTab('historico')">📁 Histórico</button>
-    </nav>
+
+    <div class="header-actions">
+      <nav class="nav-tabs">
+        <button class="tab-btn active" onclick="switchTab('corte')">⚡ Criar Cortes</button>
+        <button class="tab-btn" onclick="switchTab('terminal')">💻 Terminal Logs</button>
+        <button class="tab-btn" onclick="switchTab('config')">⚙️ Configurações</button>
+        <button class="tab-btn" onclick="switchTab('historico')">📁 Histórico</button>
+      </nav>
+
+      <button class="btn-shutdown" onclick="shutdownServer()">
+        🛑 Desligar Servidor
+      </button>
+    </div>
   </header>
 
   <div class="app-layout">
-    <!-- COLUNA DA ESQUERDA: CONTROLE -->
     <div>
       <!-- TAB 1: CRIAR CORTES -->
       <div id="tab-corte" class="tab-content active">
@@ -473,7 +423,22 @@
         </section>
       </div>
 
-      <!-- TAB 2: CONFIGURAÇÕES -->
+      <!-- TAB 2: TERMINAL EMBUTIDO -->
+      <div id="tab-terminal" class="tab-content">
+        <section class="panel">
+          <div class="terminal-header">
+            <h2 class="panel-title" style="margin-bottom:0;">💻 Console do Servidor (Tempo Real)</h2>
+            <div class="term-dots">
+              <div class="dot red"></div>
+              <div class="dot yellow"></div>
+              <div class="dot green"></div>
+            </div>
+          </div>
+          <div class="terminal-window" id="terminalOutput">Carregando logs do servidor...</div>
+        </section>
+      </div>
+
+      <!-- TAB 3: CONFIGURAÇÕES -->
       <div id="tab-config" class="tab-content">
         <section class="panel">
           <h2 class="panel-title">⚙️ Configurações & Chaves</h2>
@@ -500,7 +465,7 @@
             <div class="select-box">
               <label class="input-label">Modelo Whisper</label>
               <select id="cfgWhisper">
-                <option value="base" selected>Base (Ultra Rápido)</option>
+                <option value="base" selected>Base (Rápido)</option>
                 <option value="small">Small (Equilibrado)</option>
                 <option value="medium">Medium (Alta Precisão)</option>
               </select>
@@ -513,7 +478,7 @@
         </section>
       </div>
 
-      <!-- TAB 3: HISTÓRICO -->
+      <!-- TAB 4: HISTÓRICO -->
       <div id="tab-historico" class="tab-content">
         <section class="panel">
           <h2 class="panel-title">📁 Vídeos Anteriores</h2>
@@ -522,15 +487,13 @@
       </div>
     </div>
 
-    <!-- COLUNA DA DIREITA: PREVIEW DOS CORTES EM 9:16 -->
+    <!-- COLUNA DA DIREITA: RESULTADOS -->
     <div class="results-col">
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <h2 style="font-size:1.2rem; font-weight:800;">✨ Clipes Prontos para Postagem</h2>
-        <span style="font-size:0.8rem; color:var(--text-muted);" id="clipsCountLabel"></span>
       </div>
 
       <div class="feed-grid" id="clipsFeed">
-        <!-- Clipes inseridos dinamicamente aqui -->
         <div style="grid-column: 1/-1; padding: 40px; text-align: center; color: var(--text-muted); background: var(--surface); border-radius: 18px; border: 1px dashed var(--surface-border);">
           Nenhum corte gerado no momento. Cole um link à esquerda e clique em <b>Gerar Cortes Virais</b>!
         </div>
@@ -558,6 +521,7 @@
 
       if (name === 'config') loadConfiguration();
       if (name === 'historico') loadHistory();
+      if (name === 'terminal') fetchLogs();
     }
 
     async function pasteClipboard() {
@@ -678,6 +642,40 @@
 
     function escapeJs(str) {
       return (str || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    }
+
+    async function fetchLogs() {
+      try {
+        const res = await fetch('/api/logs');
+        const logs = await res.json();
+        const term = document.getElementById('terminalOutput');
+        term.innerText = logs.length > 0 ? logs.join('\n') : "Nenhum log registrado ainda.";
+        term.scrollTop = term.scrollHeight;
+      } catch (e) {}
+    }
+
+    // Polling de logs a cada 3 segundos
+    setInterval(() => {
+      const termTab = document.getElementById('tab-terminal');
+      if (termTab && termTab.classList.contains('active')) {
+        fetchLogs();
+      }
+    }, 3000);
+
+    async function shutdownServer() {
+      if (!confirm("⚠️ Tem certeza que deseja DESLIGAR o servidor do Clip Farm?")) return;
+      try {
+        await fetch('/api/shutdown', { method: 'POST' });
+        document.body.innerHTML = `
+          <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; text-align:center; padding:20px;">
+            <div style="font-size:3rem; margin-bottom:16px;">🛑</div>
+            <h1 style="color:#ef4444; margin-bottom:10px;">Servidor Desligado</h1>
+            <p style="color:#94a3b8; font-size:1.1rem; max-width:480px;">O servidor foi encerrado com sucesso. Você já pode fechar esta aba com segurança.</p>
+          </div>
+        `;
+      } catch (e) {
+        showToast("Servidor finalizado.");
+      }
     }
 
     async function loadConfiguration() {
