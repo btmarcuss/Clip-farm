@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import socket
 import signal
 import uuid
 import threading
@@ -269,6 +270,27 @@ def shutdown_server():
 
     threading.Thread(target=do_exit, daemon=True).start()
     return {"success": True, "message": "Servidor desligando. Você já pode fechar esta aba."}
+
+def get_local_ip() -> str:
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(('8.8.8.8', 80))
+        ip = s.getsockname()[0]
+    except Exception:
+        ip = '127.0.0.1'
+    finally:
+        s.close()
+    return ip
+
+@app.get("/api/network-info")
+def network_info():
+    ip = get_local_ip()
+    return {
+        "local_ip": ip,
+        "port": SERVER_PORT,
+        "desktop_url": f"http://localhost:{SERVER_PORT}",
+        "mobile_url": f"http://{ip}:{SERVER_PORT}"
+    }
 
 @app.get("/api/history")
 def get_history():

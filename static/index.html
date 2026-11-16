@@ -103,9 +103,81 @@
       gap: 6px;
       transition: background 0.2s;
     }
-    .btn-shutdown:hover {
-      background: var(--danger);
-      color: white;
+    .btn-mobile-link {
+      background: rgba(0, 242, 254, 0.12);
+      color: var(--secondary);
+      border: 1px solid rgba(0, 242, 254, 0.3);
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.2s;
+    }
+    .btn-mobile-link:hover {
+      background: var(--secondary);
+      color: #000;
+    }
+
+    /* Modal Mobile QR Code */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal-card {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: 20px;
+      padding: 26px;
+      max-width: 420px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+      position: relative;
+    }
+    .modal-close {
+      position: absolute;
+      top: 14px;
+      right: 16px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.3rem;
+      cursor: pointer;
+    }
+    .qr-container {
+      background: white;
+      padding: 12px;
+      border-radius: 14px;
+      display: inline-block;
+      margin: 16px 0;
+    }
+    .qr-container img {
+      width: 170px;
+      height: 170px;
+      display: block;
+    }
+    .mobile-url-box {
+      background: #0b0d11;
+      border: 1px solid #282f40;
+      padding: 12px 14px;
+      border-radius: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      color: var(--secondary);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
     }
 
     .app-layout {
@@ -366,6 +438,10 @@
     </div>
 
     <div class="header-actions">
+      <button class="btn-mobile-link" onclick="openMobileModal()">
+        📱 Abrir no Celular
+      </button>
+
       <nav class="nav-tabs">
         <button class="tab-btn active" onclick="switchTab('corte')">⚡ Criar Cortes</button>
         <button class="tab-btn" onclick="switchTab('terminal')">💻 Terminal Logs</button>
@@ -455,6 +531,13 @@
               <div class="bar-fill" id="pBar"></div>
             </div>
             <div class="prog-msg" id="pMsg">Iniciando tarefas...</div>
+          </div>
+
+          <div style="margin-top:16px; padding:10px 14px; background:#0b0e14; border:1px solid #202736; border-radius:10px; display:flex; justify-content:space-between; align-items:center; font-size:0.8rem;">
+            <span style="color:var(--text-muted);">📱 Celular: <b style="color:var(--secondary);" id="footerMobileUrl">Carregando...</b></span>
+            <button class="action-btn copy-btn" style="flex:none; padding:4px 8px; font-size:0.75rem;" onclick="openMobileModal()">
+              📷 QR Code
+            </button>
           </div>
         </section>
       </div>
@@ -568,6 +651,32 @@
           Nenhum corte gerado no momento. Cole um link à esquerda e clique em <b>Gerar Cortes Virais</b>!
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE ACESSO MOBILE COM QR CODE -->
+  <div class="modal-overlay" id="mobileModal">
+    <div class="modal-card">
+      <button class="modal-close" onclick="closeMobileModal()">&times;</button>
+      <h3 style="font-size:1.25rem; font-weight:800; margin-bottom:6px;">📱 Acessar pelo Celular</h3>
+      <p style="font-size:0.85rem; color:var(--text-muted);">
+        Aponte a câmera do seu smartphone para o QR Code abaixo ou digite o link no navegador:
+      </p>
+
+      <div class="qr-container">
+        <img id="qrCodeImg" src="" alt="QR Code de Acesso" />
+      </div>
+
+      <div class="mobile-url-box">
+        <span id="mobileUrlDisplay">Carregando...</span>
+        <button class="action-btn copy-btn" style="flex:none; padding:4px 10px; font-size:0.75rem;" onclick="copyMobileUrl()">
+          Copiar
+        </button>
+      </div>
+
+      <p style="font-size:0.75rem; color:var(--text-muted); margin-top:12px;">
+        💡 <i>Dica:</i> Certifique-se de que o computador e o celular estejam conectados no mesmo Wi-Fi.
+      </p>
     </div>
   </div>
 
@@ -887,7 +996,42 @@
       }
     }
 
+    let cachedMobileUrl = "";
+
+    async function loadNetworkInfo() {
+      try {
+        const res = await fetch('/api/network-info');
+        const data = await res.json();
+        cachedMobileUrl = data.mobile_url;
+        document.getElementById('mobileUrlDisplay').innerText = cachedMobileUrl;
+        document.getElementById('footerMobileUrl').innerText = cachedMobileUrl;
+        
+        // Gera o QR Code com API rápida de SVG/PNG
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(cachedMobileUrl)}`;
+        document.getElementById('qrCodeImg').src = qrUrl;
+      } catch (e) {
+        document.getElementById('mobileUrlDisplay').innerText = "Erro ao obter IP";
+      }
+    }
+
+    function openMobileModal() {
+      document.getElementById('mobileModal').style.display = 'flex';
+      if (!cachedMobileUrl) loadNetworkInfo();
+    }
+
+    function closeMobileModal() {
+      document.getElementById('mobileModal').style.display = 'none';
+    }
+
+    function copyMobileUrl() {
+      if (cachedMobileUrl) {
+        navigator.clipboard.writeText(cachedMobileUrl);
+        showToast("✅ Link copiado!");
+      }
+    }
+
     window.addEventListener('load', async () => {
+      loadNetworkInfo();
       checkTikTokStatus();
       try {
         const res = await fetch('/api/history');
