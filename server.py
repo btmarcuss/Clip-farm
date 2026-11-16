@@ -30,6 +30,7 @@ from video_editor import create_vertical_clip, generate_clip_thumbnail
 from auto_publisher import publish_clip_to_tiktok
 from tiktok_auth import (
     get_tiktok_session, save_tiktok_session, save_tiktok_credentials,
+    save_tiktok_phone_login, save_tiktok_google_login,
     remove_tiktok_session, verify_tiktok_sessionid
 )
 
@@ -203,6 +204,15 @@ def get_job(job_id: str):
         raise HTTPException(status_code=404, detail="Job não encontrado")
     return JOBS[job_id]
 
+class TikTokPhoneLoginRequest(BaseModel):
+    phone: str
+    password: str = ""
+    sms_code: str = ""
+
+class TikTokGoogleLoginRequest(BaseModel):
+    google_email: str
+    auth_token: str = ""
+
 class TikTokUserLoginRequest(BaseModel):
     username: str
     password: str
@@ -242,6 +252,38 @@ def tiktok_login_user(req: TikTokUserLoginRequest):
     return {
         "success": True,
         "message": f"Login do TikTok configurado com sucesso para @{session.get('username')}!",
+        "username": session.get("username")
+    }
+
+@app.post("/api/tiktok/login-phone")
+def tiktok_login_phone(req: TikTokPhoneLoginRequest):
+    """Realiza a conexão da conta do TikTok utilizando Número de Telefone."""
+    phone = req.phone.strip()
+    if not phone:
+        raise HTTPException(status_code=400, detail="Por favor, informe o número de telefone com DDD.")
+
+    session = save_tiktok_phone_login(phone=phone, password=req.password, sms_code=req.sms_code)
+    log_event(f"📱 Login com Número de Telefone salvo: {phone}")
+    
+    return {
+        "success": True,
+        "message": f"Telefone {phone} conectado com sucesso ao TikTok!",
+        "username": session.get("username")
+    }
+
+@app.post("/api/tiktok/login-google")
+def tiktok_login_google(req: TikTokGoogleLoginRequest):
+    """Conecta a conta TikTok através da Conta Google (Google Sign-In)."""
+    email = req.google_email.strip()
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="Por favor, informe um e-mail Google válido.")
+
+    session = save_tiktok_google_login(google_email=email, auth_token=req.auth_token)
+    log_event(f"🌐 Conta TikTok conectada via Google ({email})")
+    
+    return {
+        "success": True,
+        "message": f"Conta Google ({email}) conectada com sucesso ao TikTok!",
         "username": session.get("username")
     }
 

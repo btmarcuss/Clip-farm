@@ -6,16 +6,22 @@ Automação completa e profissional para esteiras de **Clip Farm**. O sistema in
 
 ## 🔑 Como Conectar sua Conta do TikTok
 
-Você pode conectar sua conta de 2 formas simples na aba **"⚙️ Configurações / Login"**:
+Você pode conectar sua conta escolhendo o seu método preferido na aba **"⚙️ Configurações / Login"**:
 
-### Opção 1: Login com Usuário e Senha (Direto)
-1. Acesse a aba **Configurações / Login** no site.
-2. Digite seu **Usuário** (ex: `@seucanal`) e sua **Senha do TikTok**.
-3. Clique em **"🚀 Conectar Conta do TikTok"**.
-4. A tela exibirá: `🟢 TikTok Conectado: @seu_usuario`.
+### 1. 🌐 Conta Google (Google Sign-In)
+- Ideal para quem se cadastrou no TikTok clicando em *"Continuar com o Google"*.
+- Basta informar seu e-mail Google e clicar em **"Conectar com a Conta Google"**.
 
-### Opção 2: Login com Session ID (Cookie) ou API Oficial
-Se preferir não digitar sua senha, você pode colar seu cookie `sessionid` ou seu token da API de Desenvolvedor.
+### 2. 📱 Número de Telefone
+- Informe seu número com DDD (ex: `+55 11 98765-4321`) e sua senha da conta ou código SMS.
+- Clique em **"Conectar com Telefone"**.
+
+### 3. 👤 Usuário ou E-mail e Senha
+- Digite seu `@usuario` do TikTok ou e-mail cadastrado + sua senha.
+- Clique em **"Conectar Conta do TikTok"**.
+
+### 4. ⚙️ Opções Avançadas (Cookie Session ID ou API Token)
+- Se preferir conectar via cookie de sessão do navegador ou via API oficial de desenvolvedor.
 
 ---
 

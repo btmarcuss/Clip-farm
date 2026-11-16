@@ -559,25 +559,81 @@
 
       <!-- TAB 3: CONFIGURAÇÕES & LOGIN TIKTOK -->
       <div id="tab-config" class="tab-content">
-        <!-- BLOCO LOGIN DO TIKTOK -->
+        <!-- BLOCO LOGIN DO TIKTOK COM MÚLTIPLOS MÉTODOS -->
         <section class="panel" style="border-color: rgba(255, 0, 80, 0.4);">
           <h2 class="panel-title" style="color:var(--primary);">
             📱 Conectar Login do TikTok
           </h2>
           <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:14px;">
-            Conecte sua conta para que os clipes sejam postados 100% no automático.
+            Escolha como prefere conectar sua conta do TikTok para postagem automática:
           </p>
 
-          <!-- FORMULÁRIO 1: USUÁRIO E SENHA (PRINCIPAL) -->
-          <div style="background: #0e121a; border: 1px solid #232b3c; border-radius: 14px; padding: 16px; margin-bottom: 16px;">
-            <div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 10px; display:flex; align-items:center; gap:8px;">
-              <span>🔑 Entrar com Usuário e Senha</span>
-              <span style="font-size:0.7rem; background:rgba(34,197,94,0.15); color:#22c55e; padding:2px 8px; border-radius:10px;">Fácil</span>
+          <!-- SELETOR DE MÉTODO DE LOGIN -->
+          <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; margin-bottom:16px;">
+            <button type="button" class="tab-btn active" id="btnMethodGoogle" onclick="switchLoginMethod('google')" style="background:#0e121a; border:1px solid #232b3c; padding:10px 4px; font-size:0.8rem;">
+              🌐 Google
+            </button>
+            <button type="button" class="tab-btn" id="btnMethodPhone" onclick="switchLoginMethod('phone')" style="background:#0e121a; border:1px solid #232b3c; padding:10px 4px; font-size:0.8rem;">
+              📱 Telefone
+            </button>
+            <button type="button" class="tab-btn" id="btnMethodUser" onclick="switchLoginMethod('user')" style="background:#0e121a; border:1px solid #232b3c; padding:10px 4px; font-size:0.8rem;">
+              👤 Usuário
+            </button>
+          </div>
+
+          <!-- MÉTODO 1: CONTA GOOGLE -->
+          <div id="method-google" class="login-method-box" style="background: #0e121a; border: 1px solid #232b3c; border-radius: 14px; padding: 16px; margin-bottom: 16px;">
+            <div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 8px;">
+              🌐 Conectar com a Conta Google do TikTok
+            </div>
+            <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px;">
+              Ideal se você usa o botão <i>"Continuar com o Google"</i> para entrar no TikTok.
+            </p>
+
+            <label class="input-label">E-mail da sua Conta Google</label>
+            <div class="input-row">
+              <input type="text" id="ttGoogleEmail" placeholder="seuemail@gmail.com" />
+            </div>
+
+            <button class="btn-primary" onclick="connectTikTokGoogle()" style="background:#fff; color:#000; box-shadow:0 4px 18px rgba(255,255,255,0.2); margin-top:6px; font-weight:800;">
+              <svg width="18" height="18" viewBox="0 0 24 24" style="margin-right:6px;"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.29 21.43 7.37 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.16 0 9.99 0 12s.46 3.84 1.26 5.42l4.02-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.37 0 3.29 2.57 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>
+              Conectar com a Conta Google
+            </button>
+          </div>
+
+          <!-- MÉTODO 2: NÚMERO DE TELEFONE -->
+          <div id="method-phone" class="login-method-box" style="display:none; background: #0e121a; border: 1px solid #232b3c; border-radius: 14px; padding: 16px; margin-bottom: 16px;">
+            <div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 8px;">
+              📱 Conectar com Número de Telefone
+            </div>
+            <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px;">
+              Informe o número de celular cadastrado na sua conta do TikTok.
+            </p>
+
+            <label class="input-label">Número com DDD (Ex: 11 98765-4321)</label>
+            <div class="input-row">
+              <input type="text" id="ttPhone" placeholder="+55 11 98765-4321" />
+            </div>
+
+            <label class="input-label">Senha ou Código SMS (Opcional)</label>
+            <div class="input-row">
+              <input type="password" id="ttPhonePassword" placeholder="Sua senha da conta ou código SMS" />
+            </div>
+
+            <button class="btn-primary" onclick="connectTikTokPhone()" style="background:#22c55e; box-shadow:0 4px 18px rgba(34,197,94,0.3); margin-top:6px;">
+              🚀 Conectar com Telefone
+            </button>
+          </div>
+
+          <!-- MÉTODO 3: USUÁRIO E SENHA -->
+          <div id="method-user" class="login-method-box" style="display:none; background: #0e121a; border: 1px solid #232b3c; border-radius: 14px; padding: 16px; margin-bottom: 16px;">
+            <div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 8px;">
+              👤 Entrar com Usuário ou E-mail
             </div>
 
             <label class="input-label">Usuário ou E-mail do TikTok</label>
             <div class="input-row">
-              <input type="text" id="ttUsername" placeholder="@seu_usuario ou seu_email@gmail.com" />
+              <input type="text" id="ttUsername" placeholder="@seu_usuario ou email@gmail.com" />
             </div>
 
             <label class="input-label">Senha do TikTok</label>
@@ -592,7 +648,7 @@
 
           <!-- MÉTODOS ALTERNATIVOS (SESSION ID / TOKEN) -->
           <details style="font-size:0.85rem; color:var(--text-muted); cursor:pointer;">
-            <summary style="font-weight:600; padding:6px 0;">⚙️ Opções Avançadas (Session ID ou API Token)</summary>
+            <summary style="font-weight:600; padding:6px 0;">⚙️ Opções Avançadas (Cookie Session ID ou API Token)</summary>
             
             <div style="margin-top:12px;">
               <label class="input-label">Session ID do TikTok (Cookie)</label>
@@ -722,6 +778,76 @@
       if (name === 'config') { loadConfiguration(); checkTikTokStatus(); }
       if (name === 'historico') loadHistory();
       if (name === 'terminal') fetchLogs();
+    }
+
+    function switchLoginMethod(method) {
+      document.querySelectorAll('.login-method-box').forEach(b => b.style.display = 'none');
+      document.querySelectorAll('#btnMethodGoogle, #btnMethodPhone, #btnMethodUser').forEach(b => {
+        b.classList.remove('active');
+        b.style.background = '#0e121a';
+        b.style.color = 'var(--text-muted)';
+      });
+
+      const activeBox = document.getElementById(`method-${method}`);
+      if (activeBox) activeBox.style.display = 'block';
+
+      const cap = method.charAt(0).toUpperCase() + method.slice(1);
+      const activeBtn = document.getElementById(`btnMethod${cap}`);
+      if (activeBtn) {
+        activeBtn.classList.add('active');
+        activeBtn.style.background = 'var(--surface)';
+        activeBtn.style.color = '#fff';
+      }
+    }
+
+    async function connectTikTokGoogle() {
+      const email = document.getElementById('ttGoogleEmail').value.trim();
+      if (!email || !email.includes('@')) {
+        return showToast("⚠️ Digite um e-mail Google válido!");
+      }
+
+      try {
+        const res = await fetch('/api/tiktok/login-google', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ google_email: email })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast("🎉 " + data.message);
+          checkTikTokStatus();
+        } else {
+          showToast("❌ " + (data.detail || "Erro ao conectar conta Google."));
+        }
+      } catch (e) {
+        showToast("Erro ao conectar conta Google.");
+      }
+    }
+
+    async function connectTikTokPhone() {
+      const phone = document.getElementById('ttPhone').value.trim();
+      const pwd = document.getElementById('ttPhonePassword').value.trim();
+
+      if (!phone) {
+        return showToast("⚠️ Digite o número de telefone com DDD!");
+      }
+
+      try {
+        const res = await fetch('/api/tiktok/login-phone', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: phone, password: pwd })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast("🎉 " + data.message);
+          checkTikTokStatus();
+        } else {
+          showToast("❌ " + (data.detail || "Erro ao conectar telefone."));
+        }
+      } catch (e) {
+        showToast("Erro ao conectar telefone.");
+      }
     }
 
     async function connectTikTokUserPassword() {

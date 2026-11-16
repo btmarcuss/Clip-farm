@@ -8,7 +8,7 @@ from config import BASE_DIR
 SESSION_FILE = BASE_DIR / "storage" / ".tiktok_session.json"
 
 def get_tiktok_session() -> dict:
-    """Carrega as credenciais salvas do TikTok (usuário/senha, sessionid ou api_token)."""
+    """Carrega as credenciais salvas do TikTok (google, telefone, usuário/senha, sessionid ou api_token)."""
     if SESSION_FILE.exists():
         try:
             with open(SESSION_FILE, "r", encoding="utf-8") as f:
@@ -18,30 +18,60 @@ def get_tiktok_session() -> dict:
     return {}
 
 def save_tiktok_credentials(username: str, password: str) -> dict:
+    """Salva login por usuário/e-mail e senha."""
+    SESSION_FILE.parent.mkdir(parents=True, exist_ok=True)
+    current = get_tiktok_session()
+    
+    clean_user = username.strip().replace("@", "")
+    current["username"] = clean_user
+    current["password_hash"] = hashlib.sha256(password.encode()).hexdigest()
+    current["auth_type"] = "usuario_senha"
+    current["status"] = "active"
+    current["login_identifier"] = clean_user
+
+    with open(SESSION_FILE, "w", encoding="utf-8") as f:
+        json.dump(current, f, indent=2)
+
+    return current
+
+def save_tiktok_phone_login(phone: str, password: str = "", sms_code: str = "") -> dict:
     """
-    Salva o login por usuário e senha do TikTok de forma segura.
-    Realiza o handshake com a conta para autenticação da esteira de cortes.
+    Salva login por Número de Telefone e Senha ou Código SMS.
     """
     SESSION_FILE.parent.mkdir(parents=True, exist_ok=True)
     current = get_tiktok_session()
     
-    current["username"] = username.strip().replace("@", "")
-    current["password_hash"] = hashlib.sha256(password.encode()).hexdigest()
-    current["auth_type"] = "credentials"
+    clean_phone = phone.strip().replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+    current["phone"] = clean_phone
+    current["username"] = f"tel_{clean_phone[-4:]}"
+    current["auth_type"] = "telefone"
     current["status"] = "active"
+    current["login_identifier"] = clean_phone
+    if password:
+        current["password_hash"] = hashlib.sha256(password.encode()).hexdigest()
+    if sms_code:
+        current["last_sms_code"] = sms_code.strip()
 
-    # Tenta obter/validar identificador do criador
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-    }
+    with open(SESSION_FILE, "w", encoding="utf-8") as f:
+        json.dump(current, f, indent=2)
+
+    return current
+
+def save_tiktok_google_login(google_email: str, auth_token: str = "") -> dict:
+    """
+    Conecta a conta TikTok vinculada à Conta Google.
+    """
+    SESSION_FILE.parent.mkdir(parents=True, exist_ok=True)
+    current = get_tiktok_session()
     
-    try:
-        # Endpoint de consulta pública do perfil para obter avatar e confirmação de ID
-        resp = requests.get(f"https://www.tiktok.com/@{current['username']}", headers=headers, timeout=8)
-        if resp.status_code == 200:
-            current["profile_verified"] = True
-    except Exception:
-        pass
+    clean_email = google_email.strip()
+    current["google_email"] = clean_email
+    current["username"] = clean_email.split("@")[0]
+    current["auth_type"] = "google"
+    current["status"] = "active"
+    current["login_identifier"] = clean_email
+    if auth_token:
+        current["google_auth_token"] = auth_token
 
     with open(SESSION_FILE, "w", encoding="utf-8") as f:
         json.dump(current, f, indent=2)
