@@ -2,20 +2,24 @@
 title Instalador Clip Farm Pro
 color 0B
 cls
+
+pushd "%~dp0"
+
 echo ========================================================
 echo        INSTALADOR DE DEPENDENCIAS CLIP FARM PRO
 echo ========================================================
 echo.
-echo Instalando bibliotecas necessarias via pip...
+echo Diretorio atual: %CD%
+echo Instalando dependencias necessarias...
 echo.
 
 pip install -r requirements.txt imageio-ffmpeg
 
 echo.
 echo ========================================================
-echo        INSTALACAO CONCLUIDA COM SUCESSO!
+echo        INSTALACAO CONCLUIDA!
 echo ========================================================
 echo.
-echo Agora execute INICIAR_CLIP_FARM.bat para abrir o aplicativo.
-echo.
 pause
+
+popd
