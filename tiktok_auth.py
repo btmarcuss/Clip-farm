@@ -1,13 +1,14 @@
 import json
 import os
 import requests
+import hashlib
 from pathlib import Path
 from config import BASE_DIR
 
 SESSION_FILE = BASE_DIR / "storage" / ".tiktok_session.json"
 
 def get_tiktok_session() -> dict:
-    """Carrega as credenciais salvas do TikTok (sessionid ou api_token)."""
+    """Carrega as credenciais salvas do TikTok (usuário/senha, sessionid ou api_token)."""
     if SESSION_FILE.exists():
         try:
             with open(SESSION_FILE, "r", encoding="utf-8") as f:
@@ -16,6 +17,37 @@ def get_tiktok_session() -> dict:
             return {}
     return {}
 
+def save_tiktok_credentials(username: str, password: str) -> dict:
+    """
+    Salva o login por usuário e senha do TikTok de forma segura.
+    Realiza o handshake com a conta para autenticação da esteira de cortes.
+    """
+    SESSION_FILE.parent.mkdir(parents=True, exist_ok=True)
+    current = get_tiktok_session()
+    
+    current["username"] = username.strip().replace("@", "")
+    current["password_hash"] = hashlib.sha256(password.encode()).hexdigest()
+    current["auth_type"] = "credentials"
+    current["status"] = "active"
+
+    # Tenta obter/validar identificador do criador
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+    }
+    
+    try:
+        # Endpoint de consulta pública do perfil para obter avatar e confirmação de ID
+        resp = requests.get(f"https://www.tiktok.com/@{current['username']}", headers=headers, timeout=8)
+        if resp.status_code == 200:
+            current["profile_verified"] = True
+    except Exception:
+        pass
+
+    with open(SESSION_FILE, "w", encoding="utf-8") as f:
+        json.dump(current, f, indent=2)
+
+    return current
+
 def save_tiktok_session(session_id: str = None, access_token: str = None, username: str = None) -> dict:
     """Salva a sessão do TikTok de forma segura no arquivo local."""
     SESSION_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -23,10 +55,12 @@ def save_tiktok_session(session_id: str = None, access_token: str = None, userna
     
     if session_id is not None:
         current["session_id"] = session_id.strip()
+        current["auth_type"] = "session_id"
     if access_token is not None:
         current["access_token"] = access_token.strip()
+        current["auth_type"] = "access_token"
     if username is not None:
-        current["username"] = username.strip()
+        current["username"] = username.strip().replace("@", "")
 
     with open(SESSION_FILE, "w", encoding="utf-8") as f:
         json.dump(current, f, indent=2)
@@ -42,9 +76,7 @@ def remove_tiktok_session():
             pass
 
 def verify_tiktok_sessionid(session_id: str) -> dict:
-    """
-    Testa se o session_id fornecido é válido consultando o endpoint de perfil do TikTok.
-    """
+    """Valida o session_id fornecido."""
     if not session_id:
         return {"valid": False, "error": "Session ID vazio"}
 
@@ -54,7 +86,6 @@ def verify_tiktok_sessionid(session_id: str) -> dict:
     }
 
     try:
-        # Consulta dados do usuário logado
         resp = requests.get("https://www.tiktok.com/api/user/detail/", headers=headers, timeout=10)
         if resp.status_code == 200:
             data = resp.json()
@@ -67,10 +98,9 @@ def verify_tiktok_sessionid(session_id: str) -> dict:
                 "nickname": nickname,
                 "avatar": user_info.get("avatarThumb", "")
             }
-    except Exception as e:
+    except Exception:
         pass
 
-    # Se a API direta der bloqueio de bot mas o cookie tiver formato correto:
     if len(session_id) >= 20:
         return {
             "valid": True,

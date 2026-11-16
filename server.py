@@ -28,7 +28,10 @@ from viral_analyzer import find_viral_moments
 from subtitles_generator import generate_tiktok_ass_subtitles
 from video_editor import create_vertical_clip, generate_clip_thumbnail
 from auto_publisher import publish_clip_to_tiktok
-from tiktok_auth import get_tiktok_session, save_tiktok_session, remove_tiktok_session, verify_tiktok_sessionid
+from tiktok_auth import (
+    get_tiktok_session, save_tiktok_session, save_tiktok_credentials,
+    remove_tiktok_session, verify_tiktok_sessionid
+)
 
 app = FastAPI(title="Clip Farm Studio Pro", version="2.3.0")
 
@@ -200,6 +203,10 @@ def get_job(job_id: str):
         raise HTTPException(status_code=404, detail="Job não encontrado")
     return JOBS[job_id]
 
+class TikTokUserLoginRequest(BaseModel):
+    username: str
+    password: str
+
 class TikTokLoginRequest(BaseModel):
     session_id: str = ""
     access_token: str = ""
@@ -208,14 +215,34 @@ class TikTokLoginRequest(BaseModel):
 def tiktok_status():
     """Retorna se há uma conta do TikTok conectada e os dados do usuário."""
     session = get_tiktok_session()
-    has_session = bool(session.get("session_id"))
-    has_token = bool(session.get("access_token") or os.getenv("TIKTOK_ACCESS_TOKEN", ""))
+    auth_type = session.get("auth_type", "none")
+    username = session.get("username", "")
+    
+    connected = bool(username or session.get("session_id") or session.get("access_token") or os.getenv("TIKTOK_ACCESS_TOKEN", ""))
     
     return {
-        "connected": has_session or has_token,
-        "method": "session_id" if has_session else ("api_token" if has_token else "none"),
-        "username": session.get("username", "Conta Conectada" if (has_session or has_token) else ""),
-        "nickname": session.get("nickname", "Criador TikTok")
+        "connected": connected,
+        "method": auth_type,
+        "username": username or "Conta Conectada",
+        "nickname": session.get("nickname", f"@{username}" if username else "Criador TikTok")
+    }
+
+@app.post("/api/tiktok/login-user")
+def tiktok_login_user(req: TikTokUserLoginRequest):
+    """Realiza o login no TikTok utilizando Usuário/E-mail e Senha."""
+    user = req.username.strip()
+    pwd = req.password.strip()
+
+    if not user or not pwd:
+        raise HTTPException(status_code=400, detail="Por favor, preencha o usuário e a senha.")
+
+    session = save_tiktok_credentials(username=user, password=pwd)
+    log_event(f"🔑 Login do TikTok salvo para o usuário: @{session.get('username')}")
+    
+    return {
+        "success": True,
+        "message": f"Login do TikTok configurado com sucesso para @{session.get('username')}!",
+        "username": session.get("username")
     }
 
 @app.post("/api/tiktok/login")

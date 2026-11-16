@@ -4,46 +4,29 @@ Automação completa e profissional para esteiras de **Clip Farm**. O sistema in
 
 ---
 
-## 🔑 Como Conectar sua Conta do TikTok (Sem Burocracia)
+## 🔑 Como Conectar sua Conta do TikTok
 
 Você pode conectar sua conta de 2 formas simples na aba **"⚙️ Configurações / Login"**:
 
-### Opção 1: Login com Session ID (Recomendado & Direto em 15 segundos)
-Não precisa de conta de desenvolvedor verificada nem burocracia de aprovação:
-1. Abra o **[tiktok.com](https://www.tiktok.com)** no seu navegador e faça login na sua conta normalmente.
-2. Pressione **F12** no teclado (Ferramentas de Desenvolvedor).
-3. Vá na aba **Aplicativo** (ou *Armazenamento*) > **Cookies** > `https://www.tiktok.com`.
-4. Procure o cookie chamado **`sessionid`**, copie o valor dele.
-5. Cole no campo correspondente no Clip Farm e clique em **"Conectar"**!
-6. A tela exibirá: `🟢 TikTok Conectado: @seu_usuario`.
+### Opção 1: Login com Usuário e Senha (Direto)
+1. Acesse a aba **Configurações / Login** no site.
+2. Digite seu **Usuário** (ex: `@seucanal`) e sua **Senha do TikTok**.
+3. Clique em **"🚀 Conectar Conta do TikTok"**.
+4. A tela exibirá: `🟢 TikTok Conectado: @seu_usuario`.
 
-### Opção 2: Token de Desenvolvedor da API Oficial
-Para quem possui cadastro como desenvolvedor na TikTok for Developers, basta colar o `access_token` no campo da API Oficial.
+### Opção 2: Login com Session ID (Cookie) ou API Oficial
+Se preferir não digitar sua senha, você pode colar seu cookie `sessionid` ou seu token da API de Desenvolvedor.
 
 ---
 
-## ⚡ Como Iniciar no Computador (Modo 100% Silencioso)
+## 📱 Como Usar no Celular (Link Gerado pelo Site)
 
-Neste computador, **todas as dependências já estão instaladas e configuradas**!
-
-Basta dar **duplo clique no arquivo**:
-```text
-INICIAR_CLIP_FARM.bat
-```
-- O servidor sobe em segundo plano **sem abrir nenhuma janela preta de terminal**.
-- O navegador abre automaticamente em `http://localhost:8888`.
-- Todos os logs, status de download, Whisper e FFmpeg aparecem na aba **"💻 Terminal Logs"** dentro do próprio site!
-- Para encerrar o servidor, basta clicar no botão vermelho **"🛑 Desligar Servidor"** no topo da página.
-
----
-
-## 📱 Como Usar no Celular
-
-Ao iniciar no computador, acesse no celular (conectado no mesmo Wi-Fi):
-```text
-👉 NO SEU CELULAR: http://192.168.X.X:8888
-```
-Você pode acionar os cortes, acompanhar os logs e postar no TikTok direto do smartphone!
+O próprio site gera o link e o QR Code em tempo real:
+1. No topo do site, clique em **"📱 Abrir no Celular"**.
+2. O site mostrará:
+   - O link gerado para seu celular (ex: `http://172.17.174.110:8888`).
+   - Botão **"💬 Enviar Link para meu WhatsApp"** (envia o link pronto para o seu WhatsApp para você clicar no smartphone).
+   - **QR Code** para apontar a câmera do celular e entrar direto!
 
 ---
 

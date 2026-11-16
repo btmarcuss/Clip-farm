@@ -568,33 +568,50 @@
             Conecte sua conta para que os clipes sejam postados 100% no automático.
           </p>
 
-          <label class="input-label">Opção 1: Session ID do TikTok (Recomendado & Direto)</label>
-          <div class="input-row">
-            <input type="password" id="tiktokSessionId" placeholder="Cole seu cookie sessionid do TikTok aqui..." />
-            <button class="action-btn dl-btn" style="flex:none; padding:0 16px;" onclick="connectTikTokSession()">
-              Conectar
+          <!-- FORMULÁRIO 1: USUÁRIO E SENHA (PRINCIPAL) -->
+          <div style="background: #0e121a; border: 1px solid #232b3c; border-radius: 14px; padding: 16px; margin-bottom: 16px;">
+            <div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 10px; display:flex; align-items:center; gap:8px;">
+              <span>🔑 Entrar com Usuário e Senha</span>
+              <span style="font-size:0.7rem; background:rgba(34,197,94,0.15); color:#22c55e; padding:2px 8px; border-radius:10px;">Fácil</span>
+            </div>
+
+            <label class="input-label">Usuário ou E-mail do TikTok</label>
+            <div class="input-row">
+              <input type="text" id="ttUsername" placeholder="@seu_usuario ou seu_email@gmail.com" />
+            </div>
+
+            <label class="input-label">Senha do TikTok</label>
+            <div class="input-row">
+              <input type="password" id="ttPassword" placeholder="Sua senha do TikTok" />
+            </div>
+
+            <button class="btn-primary" onclick="connectTikTokUserPassword()" style="background:#22c55e; box-shadow:0 4px 18px rgba(34,197,94,0.3); margin-top:6px;">
+              🚀 Conectar Conta do TikTok
             </button>
           </div>
 
-          <div class="guide-box">
-            <b>💡 Como pegar seu Session ID em 15 segundos:</b>
-            <ol>
-              <li>Abra o <b>tiktok.com</b> no seu navegador e faça login na sua conta.</li>
-              <li>Pressione <b>F12</b> no teclado (Ferramentas de Desenvolvedor).</li>
-              <li>Vá na aba <b>Aplicativo</b> (ou Armazenamento) &gt; <b>Cookies</b> &gt; <b>https://www.tiktok.com</b>.</li>
-              <li>Procure o cookie com o nome <b>sessionid</b>, dê duplo clique no valor, copie e cole acima!</li>
-            </ol>
-          </div>
+          <!-- MÉTODOS ALTERNATIVOS (SESSION ID / TOKEN) -->
+          <details style="font-size:0.85rem; color:var(--text-muted); cursor:pointer;">
+            <summary style="font-weight:600; padding:6px 0;">⚙️ Opções Avançadas (Session ID ou API Token)</summary>
+            
+            <div style="margin-top:12px;">
+              <label class="input-label">Session ID do TikTok (Cookie)</label>
+              <div class="input-row">
+                <input type="password" id="tiktokSessionId" placeholder="Cole seu cookie sessionid..." />
+                <button class="action-btn copy-btn" style="flex:none; padding:0 16px;" onclick="connectTikTokSession()">
+                  Salvar
+                </button>
+              </div>
 
-          <div style="margin: 16px 0; border-top: 1px dashed var(--surface-border);"></div>
-
-          <label class="input-label">Opção 2: Token de Desenvolvedor (TikTok API Oficial)</label>
-          <div class="input-row">
-            <input type="password" id="cfgTikTokToken" placeholder="Token de acesso oficial da API do TikTok..." />
-            <button class="action-btn copy-btn" style="flex:none; padding:0 16px;" onclick="connectTikTokToken()">
-              Salvar Token
-            </button>
-          </div>
+              <label class="input-label">Token de Desenvolvedor (TikTok API Oficial)</label>
+              <div class="input-row">
+                <input type="password" id="cfgTikTokToken" placeholder="Token de acesso da API..." />
+                <button class="action-btn copy-btn" style="flex:none; padding:0 16px;" onclick="connectTikTokToken()">
+                  Salvar
+                </button>
+              </div>
+            </div>
+          </details>
         </section>
 
         <!-- BLOCO CONFIGURAÇÕES GERAIS -->
@@ -674,6 +691,10 @@
         </button>
       </div>
 
+      <a id="whatsappShareBtn" href="#" target="_blank" class="action-btn" style="background:#25D366; color:#000; font-weight:800; margin-top:10px; text-decoration:none; padding:12px;">
+        💬 Enviar Link para meu WhatsApp
+      </a>
+
       <p style="font-size:0.75rem; color:var(--text-muted); margin-top:12px;">
         💡 <i>Dica:</i> Certifique-se de que o computador e o celular estejam conectados no mesmo Wi-Fi.
       </p>
@@ -701,6 +722,33 @@
       if (name === 'config') { loadConfiguration(); checkTikTokStatus(); }
       if (name === 'historico') loadHistory();
       if (name === 'terminal') fetchLogs();
+    }
+
+    async function connectTikTokUserPassword() {
+      const username = document.getElementById('ttUsername').value.trim();
+      const password = document.getElementById('ttPassword').value.trim();
+
+      if (!username || !password) {
+        return showToast("⚠️ Digite seu usuário e senha do TikTok!");
+      }
+
+      try {
+        const res = await fetch('/api/tiktok/login-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast("🎉 " + data.message);
+          document.getElementById('ttPassword').value = "";
+          checkTikTokStatus();
+        } else {
+          showToast("❌ " + (data.detail || "Erro ao conectar conta."));
+        }
+      } catch (e) {
+        showToast("Erro ao conectar conta.");
+      }
     }
 
     async function checkTikTokStatus() {
@@ -1005,6 +1053,10 @@
         cachedMobileUrl = data.mobile_url;
         document.getElementById('mobileUrlDisplay').innerText = cachedMobileUrl;
         document.getElementById('footerMobileUrl').innerText = cachedMobileUrl;
+
+        // Atualiza botão do WhatsApp com o link gerado
+        const waText = encodeURIComponent(`🎬 Acesse o Clip Farm pelo celular: ${cachedMobileUrl}`);
+        document.getElementById('whatsappShareBtn').href = `https://api.whatsapp.com/send?text=${waText}`;
         
         // Gera o QR Code com API rápida de SVG/PNG
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(cachedMobileUrl)}`;
