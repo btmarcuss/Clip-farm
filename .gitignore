@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Ambientes virtuais
+venv/
+.venv/
+env/
+ENV/
+
+# Variáveis de ambiente e credenciais
+.env
+
+# Armazenamento de mídia local (vídeos baixados e gerados)
+storage/temp/
+storage/output/
+
+# IDEs
+.vscode/
+.idea/
