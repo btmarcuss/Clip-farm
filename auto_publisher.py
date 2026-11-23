@@ -380,7 +380,8 @@ def upload_clip_via_playwright(video_path: str, caption: str, delete_after: bool
 def publish_clips_batch(
     clips_specs: List[Dict[str, Any]],
     delete_after_post: bool = True,
-    on_progress: Optional[Callable[[int, int, Dict[str, Any]], None]] = None
+    on_progress: Optional[Callable[[int, int, Dict[str, Any]], None]] = None,
+    on_start: Optional[Callable[[int, int], None]] = None
 ) -> List[Dict[str, Any]]:
     """
     OTIMIZAÇÃO DE LOTE: Abre o Google Chrome UMA ÚNICA VEZ para publicar todos os cortes do job
@@ -389,10 +390,11 @@ def publish_clips_batch(
     if not clips_specs:
         return []
 
-    # Se não houver sessão Chrome ativa, cai no fluxo individual (API oficial / Webhook / Fallback)
     if not is_tiktok_browser_logged_in():
         results = []
         for idx, spec in enumerate(clips_specs, 1):
+            if on_start:
+                on_start(idx, len(clips_specs))
             res = publish_clip_to_tiktok(
                 video_path=spec["video_path"],
                 title=spec["title"],
@@ -414,29 +416,56 @@ def publish_clips_batch(
 
     results = []
     with _PLAYWRIGHT_LOCK:
-        with sync_playwright() as p:
-            print(f"\n⚡ [BATCH TIKTOK] Abrindo Chrome 1 única vez para publicar {len(clips_specs)} corte(s)...")
-            context = _launch_tiktok_context(p)
-            try:
-                for idx, spec in enumerate(clips_specs, 1):
-                    caption = f"{spec['title']} {' '.join(spec.get('hashtags', []))}"[:2200]
-                    print(f"📲 [Batch {idx}/{len(clips_specs)}] Publicando: {Path(spec['video_path']).name}")
-                    res = _upload_single_on_context(
-                        context,
-                        video_path=spec["video_path"],
-                        caption=caption,
-                        delete_after=delete_after_post,
-                    )
-                    results.append(res)
-                    if on_progress:
-                        on_progress(idx, len(clips_specs), res)
-                    # Se a sessão expirou, não adianta tentar os demais
-                    if res.get("status") == "need_login":
-                        for rem in clips_specs[idx:]:
-                            results.append(res)
-                        break
-            finally:
-                context.close()
+        try:
+            with sync_playwright() as p:
+                print(f"\n⚡ [BATCH TIKTOK] Abrindo Chrome 1 única vez para publicar {len(clips_specs)} corte(s)...")
+                context = _launch_tiktok_context(p)
+                try:
+                    for idx, spec in enumerate(clips_specs, 1):
+                        if on_start:
+                            on_start(idx, len(clips_specs))
+                        caption = f"{spec['title']} {' '.join(spec.get('hashtags', []))}"[:2200]
+                        print(f"📲 [Batch {idx}/{len(clips_specs)}] Publicando: {Path(spec['video_path']).name}")
+                        try:
+                            res = _upload_single_on_context(
+                                context,
+                                video_path=spec["video_path"],
+                                caption=caption,
+                                delete_after=delete_after_post,
+                            )
+                        except Exception as e_item:
+                            res = {
+                                "success": False,
+                                "status": "failed",
+                                "error": f"Erro inesperado ao publicar: {e_item}. Vídeo mantido para download.",
+                                "local_file_deleted": False,
+                            }
+                        results.append(res)
+                        if on_progress:
+                            on_progress(idx, len(clips_specs), res)
+                        if res.get("status") == "need_login":
+                            for _ in clips_specs[idx:]:
+                                results.append(res)
+                            break
+                        # Pequena pausa entre postagens em lote para evitar rate-limit/captcha do TikTok
+                        if idx < len(clips_specs):
+                            time.sleep(2.0)
+                finally:
+                    try:
+                        context.close()
+                    except Exception:
+                        pass
+        except Exception as e_launch:
+            err_res = {
+                "success": False,
+                "status": "failed",
+                "error": f"Erro ao abrir o Chrome para envio em lote: {e_launch}. Vídeos mantidos para download.",
+                "local_file_deleted": False,
+            }
+            while len(results) < len(clips_specs):
+                results.append(err_res)
+                if on_progress:
+                    on_progress(len(results), len(clips_specs), err_res)
     return results
 
 

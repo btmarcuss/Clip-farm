@@ -299,12 +299,18 @@ def run_job_pipeline(job_id: str, req: JobRequest):
 
         results = [results_map[i] for i in sorted(results_map.keys())]
 
+        # Salva postagens.json IMEDIATAMENTE após renderizar — garante que os cortes já apareçam
+        # no Histórico para download/postagem mesmo se o servidor for interrompido no meio do lote
+        meta_json_path = video_output_dir / "postagens.json"
+        with open(meta_json_path, "w", encoding="utf-8") as f:
+            json.dump(results, f, ensure_ascii=False, indent=2)
+
         # ── PUBLICAÇÃO EM LOTE NO TIKTOK (1 única sessão do Chrome para todos os cortes!) ──
         published_count = 0
         if req.auto_post:
             job["status"] = "publishing"
             job["progress"] = 90
-            job["message"] = f"📲 Postando {len(results)} corte(s) em lote no TikTok..."
+            job["message"] = f"📲 Postando corte 1/{len(results)} no TikTok..."
             log_event(f"📲 Iniciando publicação em lote de {len(results)} corte(s) na mesma sessão do Chrome...")
 
             batch_specs = [
@@ -316,14 +322,28 @@ def run_job_pipeline(job_id: str, req: JobRequest):
                 for item in results
             ]
 
+            def _on_pub_start(i: int, total: int):
+                job["message"] = f"📲 Postando corte {i}/{total} no TikTok..."
+
             def _on_pub_progress(i: int, total: int, st: dict):
+                item = results[i - 1]
+                v_out = video_output_dir / item["filename"]
+                item["auto_post_status"] = st
+                item["file_exists"] = v_out.exists()
                 job["progress"] = 90 + int((i / max(total, 1)) * 9)
-                job["message"] = f"📲 Publicados {i}/{total} cortes no TikTok..."
+                ok_flag = "✅" if (st.get("success") and st.get("status") == "published") else "⚠️"
+                job["message"] = f"{ok_flag} Concluído {i}/{total} cortes no TikTok..."
+                try:
+                    with open(meta_json_path, "w", encoding="utf-8") as fp:
+                        json.dump(results, fp, ensure_ascii=False, indent=2)
+                except Exception:
+                    pass
 
             batch_statuses = publish_clips_batch(
                 batch_specs,
                 delete_after_post=req.delete_after,
                 on_progress=_on_pub_progress,
+                on_start=_on_pub_start,
             )
 
             for i, (item, post_status) in enumerate(zip(results, batch_statuses), 1):
@@ -611,6 +631,33 @@ def get_history():
                         })
                     except Exception:
                         pass
+                else:
+                    # Fallback: exibe cortes .mp4 órfãos caso o processo tenha sido interrompido antes de gravar postagens.json
+                    mp4s = sorted(vid_dir.glob("corte_*.mp4"))
+                    if mp4s:
+                        clips = []
+                        for idx, mp4_f in enumerate(mp4s, 1):
+                            stem = mp4_f.stem
+                            thumb_f = vid_dir / f"{stem}_thumb.jpg"
+                            clips.append({
+                                "clip_number": idx,
+                                "video_id": vid_dir.name,
+                                "filename": mp4_f.name,
+                                "video_url": f"/api/media/{vid_dir.name}/{mp4_f.name}",
+                                "thumb_url": f"/api/media/{vid_dir.name}/{thumb_f.name}" if thumb_f.exists() else "",
+                                "file_exists": True,
+                                "duration": 0,
+                                "title": f"Corte recuperado ({stem})",
+                                "hook": "",
+                                "reason": "Recuperado automaticamente do disco",
+                                "hashtags": ["#cortes", "#reels", "#shorts"],
+                                "auto_post_status": None,
+                            })
+                        history.append({
+                            "video_id": vid_dir.name,
+                            "clips_count": len(clips),
+                            "clips": clips
+                        })
     return history
 
 

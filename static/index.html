@@ -1519,25 +1519,50 @@
         }
         const jobId = data.job_id;
 
+        let pollFailures = 0;
         const interval = setInterval(async () => {
-          const sRes = await fetch(`/api/jobs/${jobId}`);
-          const job = await sRes.json();
+          try {
+            const sRes = await fetch(`/api/jobs/${jobId}`);
+            if (!sRes.ok) {
+              pollFailures++;
+              if (pollFailures >= 3) {
+                clearInterval(interval);
+                btn.disabled = false;
+                pStatus.innerText = 'INTERROMPIDO';
+                pMsg.innerText = 'O servidor foi reiniciado durante o processo. Verifique os cortes já salvos na aba Histórico.';
+                showToast('⚠️ Conexão interrompida. Os cortes já renderizados estão na aba Histórico.');
+                loadHistory();
+              }
+              return;
+            }
+            pollFailures = 0;
+            const job = await sRes.json();
 
-          bar.style.width = job.progress + '%';
-          barRole.setAttribute('aria-valuenow', String(job.progress));
-          pPercent.innerText = job.progress + '%';
-          pStatus.innerText = job.status.toUpperCase();
-          pMsg.innerText = job.message;
+            bar.style.width = job.progress + '%';
+            barRole.setAttribute('aria-valuenow', String(job.progress));
+            pPercent.innerText = job.progress + '%';
+            pStatus.innerText = job.status.toUpperCase();
+            pMsg.innerText = job.message;
 
-          if (job.status === 'completed') {
-            clearInterval(interval);
-            btn.disabled = false;
-            renderClips(job.results);
-            showToast('Processamento concluído!');
-          } else if (job.status === 'failed') {
-            clearInterval(interval);
-            btn.disabled = false;
-            showToast('Erro: ' + job.message);
+            if (job.status === 'completed') {
+              clearInterval(interval);
+              btn.disabled = false;
+              renderClips(job.results);
+              showToast('Processamento concluído!');
+            } else if (job.status === 'failed') {
+              clearInterval(interval);
+              btn.disabled = false;
+              showToast('Erro: ' + job.message);
+            }
+          } catch (pollErr) {
+            pollFailures++;
+            if (pollFailures >= 3) {
+              clearInterval(interval);
+              btn.disabled = false;
+              pStatus.innerText = 'DESCONECTADO';
+              pMsg.innerText = 'Servidor indisponível. Reinicie o aplicativo e verifique a aba Histórico.';
+              showToast('⚠️ Servidor desconectado. Reinicie o Clip Farm.');
+            }
           }
         }, 2000);
 
