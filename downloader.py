@@ -5,23 +5,39 @@ import yt_dlp
 from config import TEMP_DIR
 from ffmpeg_helper import get_ffmpeg_exe
 
+# Adiciona Node.js ao PATH para que o yt-dlp possa usar como JS runtime
+_NODE_PATH = r"C:\Program Files\nodejs"
+if _NODE_PATH not in os.environ.get("PATH", ""):
+    os.environ["PATH"] = _NODE_PATH + ";" + os.environ.get("PATH", "")
+
 def download_youtube_video(url: str) -> dict:
     """
-    Baixa o vídeo do YouTube em até 1080p e extrai uma faixa de áudio WAV 16kHz mono
-    para alimentar o pipeline de transcrição com eficiência.
-    Garante a localização do FFmpeg para evitar erros de merge de formatos.
+    Baixa o vídeo do YouTube em até 720p e extrai uma faixa de áudio WAV 16kHz mono.
+    Suporta vídeos com streams separados (vídeo + áudio) usando FFmpeg para merge.
     """
     print(f"[1/4] 📥 Iniciando download: {url}")
     
     ffmpeg_bin = get_ffmpeg_exe()
     
     ydl_opts = {
-        'format': 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best',
+        # Formato robusto: tenta mp4 720p + m4a, depois qualquer 720p, depois qualquer coisa
+        # bestvideo+bestaudio garante merge mesmo quando streams são separados
+        'format': (
+            'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/'
+            'bestvideo[height<=720]+bestaudio/'
+            'bestvideo[height<=480]+bestaudio/'
+            'best[height<=720]/'
+            'best'
+        ),
         'outtmpl': str(TEMP_DIR / '%(id)s.%(ext)s'),
         'merge_output_format': 'mp4',
         'ffmpeg_location': ffmpeg_bin,
         'quiet': False,
         'no_warnings': True,
+        # Múltiplas conexões para acelerar download
+        'concurrent_fragment_downloads': 4,
+        'retries': 3,
+        'fragment_retries': 3,
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -30,20 +46,18 @@ def download_youtube_video(url: str) -> dict:
         video_title = info.get("title", "video")
         duration = info.get("duration", 0)
         
-        # Localiza o arquivo de vídeo baixado (pode ser .mp4 ou .mkv)
+        # Localiza o arquivo de vídeo baixado
         video_path = TEMP_DIR / f"{video_id}.mp4"
         if not video_path.exists():
-            # Procura por qualquer extensão baixada com esse ID
             for candidate in TEMP_DIR.glob(f"{video_id}.*"):
                 if candidate.suffix.lower() in [".mp4", ".mkv", ".webm"]:
                     video_path = candidate
                     break
 
-        audio_path = TEMP_DIR / f"{video_id}.wav"
-
     print(f"🎬 Vídeo baixado: {video_path}")
     print(f"🎵 Extraindo áudio mono 16kHz para transcrição rápida...")
     
+    audio_path = TEMP_DIR / f"{video_id}.wav"
     cmd_audio = [
         ffmpeg_bin, "-y",
         "-i", str(video_path),

@@ -512,7 +512,18 @@
                 <p>Publica direto na conta conectada ao terminar o corte</p>
               </div>
               <label class="switch">
-                <input type="checkbox" id="autopostToggle" />
+                <input type="checkbox" id="autopostToggle" checked />
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div class="toggle-item">
+              <div class="toggle-info">
+                <h4 style="color:#ef4444;">🗑️ Não guardar vídeos após postar</h4>
+                <p>Só exclui do computador quando o TikTok confirmar a postagem (se falhar, fica salvo p/ baixar)</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="deleteAfterToggle" checked />
                 <span class="slider"></span>
               </label>
             </div>
@@ -565,8 +576,22 @@
             📱 Conectar Login do TikTok
           </h2>
           <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:14px;">
-            Escolha como prefere conectar sua conta do TikTok para postagem automática:
+            Conecte sua conta para que os clipes sejam postados de forma 100% automática:
           </p>
+
+          <!-- BOTÃO DE CONEXÃO REAL DIRETA COM O CHROME -->
+          <div style="background: linear-gradient(135deg, rgba(255,0,80,0.15), rgba(0,242,234,0.15)); border: 1px solid rgba(255,0,80,0.4); border-radius: 14px; padding: 18px; margin-bottom: 20px; text-align: center;">
+            <div style="font-weight: 800; font-size: 1.05rem; margin-bottom: 6px;">
+              🌐 Conectar Conta Real no Navegador Chrome (Recomendado)
+            </div>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 14px; line-height: 1.4;">
+              Abre uma janela real do Chrome para você entrar no TikTok (com Google, QR Code, Telefone ou Senha). A sessão fica salva no perfil para postar direto sem intervenção manual!
+            </p>
+            <button class="btn-primary" onclick="openTikTokBrowserLogin()" style="background: linear-gradient(45deg, #ff0050, #00f2fe); font-size: 0.95rem; font-weight: 800; padding: 12px 20px;">
+              🚀 Abrir Navegador e Conectar TikTok
+            </button>
+            <div id="browserLoginStatusText" style="margin-top: 10px; font-size: 0.8rem; color: #a1a1aa;"></div>
+          </div>
 
           <!-- SELETOR DE MÉTODO DE LOGIN -->
           <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; margin-bottom:16px;">
@@ -800,6 +825,34 @@
       }
     }
 
+    async function openTikTokBrowserLogin() {
+      const statusDiv = document.getElementById('browserLoginStatusText');
+      if (statusDiv) statusDiv.innerHTML = "⏳ Abrindo janela do Chrome... Faça login e feche a janela ao terminar.";
+      showToast("🌐 Abrindo janela do Chrome para login no TikTok...");
+      try {
+        const res = await fetch('/api/tiktok/open-browser', { method: 'POST' });
+        const data = await res.json();
+        showToast("👉 Faça login na janela do navegador que se abriu!");
+
+        // Faz polling para atualizar o status assim que o usuário logar
+        let checks = 0;
+        const checkInterval = setInterval(async () => {
+          checks++;
+          const bRes = await fetch('/api/tiktok/browser-status');
+          const bData = await bRes.json();
+          if (bData.browser_logged_in) {
+            clearInterval(checkInterval);
+            if (statusDiv) statusDiv.innerHTML = "✅ <b>Conectado com Sucesso!</b> Sessão salva permanentemente.";
+            showToast("🎉 Conta do TikTok conectada com sucesso!");
+            checkTikTokStatus();
+          }
+          if (checks > 40) clearInterval(checkInterval); // para após ~2 min
+        }, 3000);
+      } catch (e) {
+        showToast("⚠️ Erro ao abrir navegador.");
+      }
+    }
+
     async function connectTikTokGoogle() {
       const email = document.getElementById('ttGoogleEmail').value.trim();
       if (!email || !email.includes('@')) {
@@ -977,6 +1030,7 @@
       const layout = document.getElementById('layout').value;
       const subtitles = document.getElementById('subtitlesToggle').checked;
       const auto_post = document.getElementById('autopostToggle').checked;
+      const delete_after = document.getElementById('deleteAfterToggle') ? document.getElementById('deleteAfterToggle').checked : true;
 
       const btn = document.getElementById('startBtn');
       const card = document.getElementById('progressCard');
@@ -992,7 +1046,7 @@
         const res = await fetch('/api/jobs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url, clips, layout, subtitles, auto_post })
+          body: JSON.stringify({ url, clips, layout, subtitles, auto_post, delete_after })
         });
         const data = await res.json();
         const jobId = data.job_id;
@@ -1029,43 +1083,106 @@
       if (!results || results.length === 0) return;
       feed.innerHTML = '';
 
-      results.forEach(c => {
-        let badge = '';
-        if (c.auto_post_status) {
-          if (c.auto_post_status.status === 'published') {
-            badge = '<span class="status-badge published">✅ TikTok Postado</span>';
-          } else {
-            badge = '<span class="status-badge queue">⏳ Fila Ativa</span>';
+      results.forEach((c, idx) => {
+        const st = c.auto_post_status;
+        const isPublished = st && st.success && st.status === 'published';
+        const isFailed = st && !st.success;
+        const fileExists = c.file_exists !== false && !(st && st.local_file_deleted);
+
+        let badge = '<span class="status-badge queue">💾 Salvo p/ Download</span>';
+        let errorBox = '';
+        if (isPublished) {
+          badge = '<span class="status-badge published">✅ TikTok Postado</span>';
+        } else if (isFailed) {
+          badge = '<span class="status-badge" style="background:rgba(239,68,68,0.18); color:#f87171; border:1px solid rgba(239,68,68,0.4);">⚠️ Não Postado</span>';
+          if (st.error) {
+            errorBox = `<div style="font-size:0.78rem; color:#fca5a5; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); border-radius:8px; padding:8px; margin-top:6px;">${st.error}</div>`;
           }
         }
+
+        const videoBlock = fileExists
+          ? `<div class="video-wrap">
+               <video controls playsinline preload="metadata" poster="${c.thumb_url}">
+                 <source src="${c.video_url}" type="video/mp4" />
+               </video>
+             </div>`
+          : `<div class="video-wrap" style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; text-align:center; background:#0b0d11; min-height:200px;">
+               <div style="font-size:2.4rem; margin-bottom:8px;">${isPublished ? '🎉' : '🗑️'}</div>
+               <div style="font-weight:700; font-size:0.9rem; color:#e2e8f0;">${isPublished ? 'Publicado no TikTok' : 'Arquivo local removido'}</div>
+               <div style="font-size:0.78rem; color:#94a3b8; margin-top:4px;">O arquivo .mp4 foi apagado do disco conforme configurado.</div>
+             </div>`;
+
+        const downloadBtn = fileExists
+          ? `<a href="${c.video_url}?download=1" download="${c.filename || 'corte_tiktok.mp4'}" class="action-btn dl-btn">
+               ⬇️ Baixar MP4
+             </a>`
+          : '';
+
+        const vidId = c.video_id || (c.video_url ? c.video_url.split('/')[3] : '');
+        const fname = c.filename || (c.video_url ? c.video_url.split('/')[4] : '');
+        const postBtn = (fileExists && !isPublished && vidId && fname)
+          ? `<button class="action-btn" id="postBtn_${idx}" style="background:rgba(255,0,80,0.18); color:#ff4d79; border:1px solid rgba(255,0,80,0.4);" onclick='publishClipNow(${idx}, ${JSON.stringify(vidId)}, ${JSON.stringify(fname)}, ${JSON.stringify(c.title)}, ${JSON.stringify(c.hashtags || [])})'>
+               📲 Postar no TikTok
+             </button>`
+          : '';
 
         const div = document.createElement('div');
         div.className = 'clip-card';
         div.innerHTML = `
-          <div class="video-wrap">
-            <video controls playsinline preload="metadata" poster="${c.thumb_url}">
-              <source src="${c.video_url}" type="video/mp4" />
-            </video>
-          </div>
+          ${videoBlock}
           <div class="clip-meta">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
               <span class="hook-tag">🎯 Gancho (${c.duration}s)</span>
               ${badge}
             </div>
             <div class="clip-heading">${c.title}</div>
-            <div class="clip-hashtags">${c.hashtags.join(' ')}</div>
-            <div class="btn-group">
-              <button class="action-btn copy-btn" onclick="copyMeta('${escapeJs(c.title)}', '${escapeJs(c.hashtags.join(' '))}')">
+            <div class="clip-hashtags">${(c.hashtags || []).join(' ')}</div>
+            ${errorBox}
+            <div class="btn-group" style="flex-wrap:wrap;">
+              <button class="action-btn copy-btn" onclick="copyMeta('${escapeJs(c.title)}', '${escapeJs((c.hashtags || []).join(' '))}')">
                 📋 Copiar Texto
               </button>
-              <a href="${c.video_url}" download="corte_tiktok.mp4" class="action-btn dl-btn">
-                ⬇️ Baixar
-              </a>
+              ${downloadBtn}
+              ${postBtn}
             </div>
           </div>
         `;
         feed.appendChild(div);
       });
+    }
+
+    async function publishClipNow(idx, videoId, filename, title, hashtags) {
+      const btn = document.getElementById(`postBtn_${idx}`);
+      if (btn) {
+        btn.disabled = true;
+        btn.innerText = '⏳ Postando...';
+      }
+      showToast('📲 Enviando clipe para o TikTok Studio...');
+      try {
+        const deleteAfter = document.getElementById('deleteAfterToggle') ? document.getElementById('deleteAfterToggle').checked : false;
+        const res = await fetch('/api/clips/publish', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ video_id: videoId, filename, title, hashtags, delete_after: deleteAfter })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast('🎉 Clipe publicado com sucesso no TikTok!');
+          if (btn) btn.innerText = '✅ Postado!';
+        } else {
+          showToast('⚠️ ' + (data.error || data.detail || 'Falha ao publicar no TikTok.'));
+          if (btn) {
+            btn.disabled = false;
+            btn.innerText = '📲 Tentar Novamente';
+          }
+        }
+      } catch (e) {
+        showToast('❌ Erro de conexão ao publicar.');
+        if (btn) {
+          btn.disabled = false;
+          btn.innerText = '📲 Tentar Novamente';
+        }
+      }
     }
 
     function copyMeta(title, tags) {

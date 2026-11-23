@@ -51,10 +51,12 @@ def create_vertical_clip(
         "-map", "[v]",
         "-map", "0:a?",
         "-c:v", "libx264",
-        "-preset", "veryfast",
-        "-crf", "20",
+        "-preset", "ultrafast",   # ultrafast = 2-3x mais rápido que veryfast, qualidade ok para TikTok
+        "-crf", "23",             # CRF 23 é imperceptível para mobile, arquivos menores
+        "-tune", "fastdecode",    # Otimiza para decodificação rápida
         "-c:a", "aac",
-        "-b:a", "192k",
+        "-b:a", "128k",           # 128k suficiente para TikTok (era 192k)
+        "-movflags", "+faststart", # Permite streaming progressivo (reprodução começa mais rápido)
         str(out_file)
     ]
 

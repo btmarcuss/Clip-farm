@@ -1,6 +1,17 @@
 from faster_whisper import WhisperModel
 from config import WHISPER_MODEL
 
+# Cache do modelo Whisper — carregado uma única vez na memória ao iniciar o servidor.
+# Evita o custo de carregamento (5–15s) a cada job processado.
+_WHISPER_CACHE: dict = {}
+
+def get_cached_model(size: str) -> WhisperModel:
+    if size not in _WHISPER_CACHE:
+        print(f"🔄 Carregando modelo Whisper '{size}' na memória (apenas uma vez)...")
+        _WHISPER_CACHE[size] = WhisperModel(size, device="auto", compute_type="auto")
+        print(f"✅ Modelo Whisper '{size}' pronto e cacheado.")
+    return _WHISPER_CACHE[size]
+
 def transcribe_audio(audio_path: str, model_size: str = None) -> list:
     """
     Transcreve o arquivo de áudio gerando segmentos e timestamps detalhados por palavra.
@@ -9,8 +20,8 @@ def transcribe_audio(audio_path: str, model_size: str = None) -> list:
     size = model_size or WHISPER_MODEL
     print(f"[2/4] 🎙️ Transcrevendo com Faster-Whisper (modelo: {size}, word_timestamps=True)...")
     
-    # device="auto" seleciona cuda se disponível, senão cpu
-    model = WhisperModel(size, device="auto", compute_type="auto")
+    # Usa o modelo cacheado — sem recarga entre jobs
+    model = get_cached_model(size)
     segments, info = model.transcribe(
         audio_path,
         language="pt",

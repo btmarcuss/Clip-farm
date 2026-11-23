@@ -15,6 +15,7 @@ import signal
 import uuid
 import threading
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Dict, Any, List
 from collections import deque
@@ -26,7 +27,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from config import (
-    OUTPUT_DIR, MAX_CLIPS, DEFAULT_LAYOUT, ENABLE_SUBTITLES, AUTO_POST,
+    OUTPUT_DIR, TEMP_DIR, MAX_CLIPS, DEFAULT_LAYOUT, ENABLE_SUBTITLES, AUTO_POST,
     BASE_DIR, GEMINI_API_KEY, TIKTOK_ACCESS_TOKEN, TIKTOK_PRIVACY_LEVEL, WHISPER_MODEL,
     SERVER_HOST, SERVER_PORT
 )
@@ -36,7 +37,9 @@ from transcriber import transcribe_audio
 from viral_analyzer import find_viral_moments
 from subtitles_generator import generate_tiktok_ass_subtitles
 from video_editor import create_vertical_clip, generate_clip_thumbnail
-from auto_publisher import publish_clip_to_tiktok
+from auto_publisher import (
+    publish_clip_to_tiktok, open_tiktok_login_window, is_tiktok_browser_logged_in
+)
 from tiktok_auth import (
     get_tiktok_session, save_tiktok_session, save_tiktok_credentials,
     save_tiktok_phone_login, save_tiktok_google_login,
@@ -71,6 +74,7 @@ class JobRequest(BaseModel):
     layout: str = DEFAULT_LAYOUT
     subtitles: bool = ENABLE_SUBTITLES
     auto_post: bool = AUTO_POST
+    delete_after: bool = True  # Não guarda os vídeos no disco: apaga após postar
 
 class ConfigUpdate(BaseModel):
     gemini_key: str = ""
@@ -93,17 +97,31 @@ def run_job_pipeline(job_id: str, req: JobRequest):
 
         job["status"] = "analyzing_audio"
         job["progress"] = 30
-        job["message"] = "2/4 🔊 Mapeando picos de energia e reações sonoras..."
-        log_event("🔊 Analisando amplitude de áudio e momentos de grito/risada...")
-        spikes = detect_audio_spikes(media["audio_path"])
-        log_event(f"⚡ Picos de som detectados: {len(spikes)} momentos-chave.")
+        job["message"] = "2/4 ⚡ Analisando áudio e transcrevendo em paralelo..."
+        log_event("⚡ Iniciando análise de áudio e transcrição em paralelo...")
 
-        job["status"] = "transcribing"
+        # ── OTIMIZAÇÃO: audio_spike e transcription rodam ao mesmo tempo ──
+        spikes_result = [None]
+        transcript_result = [None]
+
+        def _analyze():
+            spikes_result[0] = detect_audio_spikes(media["audio_path"])
+            log_event(f"⚡ Picos de som detectados: {len(spikes_result[0])} momentos-chave.")
+
+        def _transcribe():
+            transcript_result[0] = transcribe_audio(media["audio_path"])
+            log_event(f"✅ Transcrição concluída: {len(transcript_result[0])} segmentos mapeados.")
+
+        t_analyze = threading.Thread(target=_analyze)
+        t_transcribe = threading.Thread(target=_transcribe)
+        t_analyze.start()
+        t_transcribe.start()
+        t_analyze.join()
+        t_transcribe.join()
+
+        spikes = spikes_result[0]
+        transcript = transcript_result[0]
         job["progress"] = 50
-        job["message"] = "2/4 🎙️ Transcrevendo com Faster-Whisper IA..."
-        log_event("🎙️ Transcrevendo áudio com timestamps por palavra...")
-        transcript = transcribe_audio(media["audio_path"])
-        log_event(f"✅ Transcrição concluída: {len(transcript)} segmentos de fala mapeados.")
 
         job["status"] = "ai_thinking"
         job["progress"] = 70
@@ -114,29 +132,32 @@ def run_job_pipeline(job_id: str, req: JobRequest):
 
         job["status"] = "rendering"
         job["progress"] = 85
-        job["message"] = f"4/4 ✂️ Renderizando {len(viral_clips)} cortes verticais 9:16..."
+        job["message"] = f"4/4 ✂️ Renderizando {len(viral_clips)} cortes em paralelo..."
 
         video_output_dir = OUTPUT_DIR / media["id"]
         video_output_dir.mkdir(parents=True, exist_ok=True)
-        
-        results = []
-        for idx, clip in enumerate(viral_clips, 1):
-            clip_base = f"corte_{idx:02d}"
-            v_out = video_output_dir / f"{clip_base}.mp4"
-            t_out = video_output_dir / f"{clip_base}_thumb.jpg"
-            sub_path = None
 
-            log_event(f"✂️ Renderizando Corte #{idx} ({clip['start_time']}s até {clip['end_time']}s) - Layout: {req.layout}")
-
-            if req.subtitles:
+        # ── OTIMIZAÇÃO: Gera os .ass de legenda (rápido, CPU bound) antes do rendering ──
+        ass_paths = {}
+        if req.subtitles:
+            for idx, clip in enumerate(viral_clips, 1):
+                clip_base = f"corte_{idx:02d}"
                 ass_file = video_output_dir / f"{clip_base}.ass"
-                sub_path = generate_tiktok_ass_subtitles(
+                ass_paths[idx] = generate_tiktok_ass_subtitles(
                     segments_with_words=transcript,
                     clip_start=clip["start_time"],
                     clip_end=clip["end_time"],
                     output_ass_path=str(ass_file)
                 )
-                log_event(f"📝 Legendas dinâmicas estilo Hormozi geradas para corte #{idx}")
+
+        # ── OTIMIZAÇÃO: Renderiza todos os cortes em paralelo (1 thread por corte) ──
+        def render_clip(idx: int, clip: dict) -> dict:
+            clip_base = f"corte_{idx:02d}"
+            v_out = video_output_dir / f"{clip_base}.mp4"
+            t_out = video_output_dir / f"{clip_base}_thumb.jpg"
+            sub_path = ass_paths.get(idx)
+
+            log_event(f"✂️ [Paralelo] Renderizando Corte #{idx} ({clip['start_time']}s→{clip['end_time']}s) Layout:{req.layout}")
 
             create_vertical_clip(
                 video_path=media["video_path"],
@@ -153,21 +174,15 @@ def run_job_pipeline(job_id: str, req: JobRequest):
                 output_thumb_path=str(t_out)
             )
 
-            post_status = None
-            if req.auto_post:
-                log_event(f"📲 Postando Corte #{idx} no TikTok automaticamente...")
-                job["message"] = f"📲 Postando corte #{idx} no TikTok..."
-                post_status = publish_clip_to_tiktok(
-                    video_path=str(v_out),
-                    title=clip.get("suggested_title", "Corte Viral"),
-                    hashtags=clip.get("hashtags", [])
-                )
-                log_event(f"✅ Status da postagem do corte #{idx}: {post_status.get('status')}")
+            log_event(f"✅ Corte #{idx} renderizado com sucesso!")
 
-            results.append({
+            return {
                 "clip_number": idx,
+                "video_id": media["id"],
+                "filename": f"{clip_base}.mp4",
                 "video_url": f"/api/media/{media['id']}/{clip_base}.mp4",
                 "thumb_url": f"/api/media/{media['id']}/{clip_base}_thumb.jpg",
+                "file_exists": True,
                 "start_time": clip["start_time"],
                 "end_time": clip["end_time"],
                 "duration": round(clip["end_time"] - clip["start_time"], 2),
@@ -175,17 +190,67 @@ def run_job_pipeline(job_id: str, req: JobRequest):
                 "hook": clip.get("hook_phrase", ""),
                 "reason": clip.get("reason", ""),
                 "hashtags": clip.get("hashtags", []),
-                "auto_post_status": post_status
-            })
+                "auto_post_status": None
+            }
+
+        results_map = {}
+        max_workers = min(len(viral_clips), 3)  # máx 3 ffmpeg simultâneos para não saturar CPU
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(render_clip, idx, clip): idx for idx, clip in enumerate(viral_clips, 1)}
+            for future in as_completed(futures):
+                idx = futures[future]
+                results_map[idx] = future.result()
+
+        results = [results_map[i] for i in sorted(results_map.keys())]
+
+        # ── PUBLICAÇÃO SEQUENCIAL NO TIKTOK (1 por vez para evitar lock no perfil do Chrome) ──
+        published_count = 0
+        if req.auto_post:
+            job["status"] = "publishing"
+            job["progress"] = 90
+            for i, item in enumerate(results, 1):
+                v_out = video_output_dir / item["filename"]
+                job["message"] = f"📲 Postando Corte #{i}/{len(results)} no TikTok..."
+                log_event(f"📲 Postando Corte #{i}/{len(results)} no TikTok...")
+                post_status = publish_clip_to_tiktok(
+                    video_path=str(v_out),
+                    title=item["title"],
+                    hashtags=item["hashtags"],
+                    delete_after_post=req.delete_after
+                )
+                item["auto_post_status"] = post_status
+                item["file_exists"] = v_out.exists()
+                if post_status.get("success") and post_status.get("status") == "published":
+                    published_count += 1
+                    log_event(f"✅ Corte #{i} publicado com sucesso no TikTok!")
+                else:
+                    log_event(f"⚠️ Corte #{i} não foi publicado ({post_status.get('error', 'erro desconhecido')}). Mantido para download.")
+                job["progress"] = 90 + int((i / max(len(results), 1)) * 9)
+
+            # Só limpa os temporários de origem se delete_after estiver ativo e todos os cortes tiverem sido postados
+            if req.delete_after and published_count == len(results):
+                for temp_f in TEMP_DIR.glob(f"{media['id']}.*"):
+                    try:
+                        temp_f.unlink(missing_ok=True)
+                    except Exception:
+                        pass
 
         with open(video_output_dir / "postagens.json", "w", encoding="utf-8") as f:
             json.dump(results, f, ensure_ascii=False, indent=2)
 
         job["status"] = "completed"
         job["progress"] = 100
-        job["message"] = "Processamento concluído!" + (" Cortes postados no TikTok!" if req.auto_post else "")
+        if req.auto_post:
+            if published_count == len(results):
+                job["message"] = f"Concluído! Todos os {published_count} cortes foram postados no TikTok!"
+            elif published_count > 0:
+                job["message"] = f"Concluído! {published_count}/{len(results)} postados; os demais estão disponíveis para baixar."
+            else:
+                job["message"] = "Cortes prontos para download! (Não foi possível postar automaticamente no TikTok — veja o motivo abaixo.)"
+        else:
+            job["message"] = "Processamento concluído! Cortes prontos para assistir e baixar."
         job["results"] = results
-        log_event(f"🎉 Job #{job_id} concluído com sucesso total! Clipes salvos em: {video_output_dir.name}")
+        log_event(f"🎉 Job #{job_id} concluído! Publicados: {published_count}/{len(results)} | Pasta: {video_output_dir.name}")
 
     except Exception as e:
         err_msg = f"Erro no processamento: {str(e)}"
@@ -230,20 +295,42 @@ class TikTokLoginRequest(BaseModel):
     session_id: str = ""
     access_token: str = ""
 
+@app.post("/api/tiktok/open-browser")
+def tiktok_open_browser():
+    """Abre uma janela real do Google Chrome na tela do usuário para login direto no TikTok."""
+    def run_login():
+        log_event("🌐 Abrindo janela do Google Chrome para login no TikTok...")
+        res = open_tiktok_login_window()
+        if res.get("logged_in"):
+            log_event("🎉 Conta do TikTok conectada com sucesso no Navegador!")
+        else:
+            log_event("ℹ️ Janela de login do TikTok finalizada.")
+
+    threading.Thread(target=run_login, daemon=True).start()
+    return {"success": True, "message": "Janela do Google Chrome aberta! Faça seu login e resolva o captcha na tela."}
+
+@app.get("/api/tiktok/browser-status")
+def tiktok_browser_status():
+    """Retorna se o navegador Chrome já possui sessão ativa do TikTok salva."""
+    logged = is_tiktok_browser_logged_in()
+    return {"browser_logged_in": logged}
+
 @app.get("/api/tiktok/status")
 def tiktok_status():
     """Retorna se há uma conta do TikTok conectada e os dados do usuário."""
     session = get_tiktok_session()
     auth_type = session.get("auth_type", "none")
     username = session.get("username", "")
-    
-    connected = bool(username or session.get("session_id") or session.get("access_token") or os.getenv("TIKTOK_ACCESS_TOKEN", ""))
-    
+    browser_logged = is_tiktok_browser_logged_in()
+
+    connected = bool(browser_logged or username or session.get("session_id") or session.get("access_token") or os.getenv("TIKTOK_ACCESS_TOKEN", ""))
+
     return {
         "connected": connected,
-        "method": auth_type,
-        "username": username or "Conta Conectada",
-        "nickname": session.get("nickname", f"@{username}" if username else "Criador TikTok")
+        "browser_logged_in": browser_logged,
+        "method": "chrome_browser" if browser_logged else auth_type,
+        "username": username or ("Conta Conectada no Chrome" if browser_logged else "Não Conectado"),
+        "nickname": session.get("nickname", f"@{username}" if username else ("TikTok Conectado" if browser_logged else "Desconectado"))
     }
 
 @app.post("/api/tiktok/login-user")
@@ -381,14 +468,65 @@ def get_history():
                     try:
                         with open(meta_file, "r", encoding="utf-8") as f:
                             clips = json.load(f)
-                            history.append({
-                                "video_id": vid_dir.name,
-                                "clips_count": len(clips),
-                                "clips": clips
-                            })
+                        for c in clips:
+                            c.setdefault("video_id", vid_dir.name)
+                            fname = c.get("filename") or f"corte_{c.get('clip_number', 1):02d}.mp4"
+                            c["filename"] = fname
+                            c["file_exists"] = (vid_dir / fname).exists()
+                        history.append({
+                            "video_id": vid_dir.name,
+                            "clips_count": len(clips),
+                            "clips": clips
+                        })
                     except Exception:
                         pass
     return history
+
+
+class PublishClipRequest(BaseModel):
+    video_id: str
+    filename: str
+    title: str = "Corte Viral"
+    hashtags: List[str] = []
+    delete_after: bool = False
+
+
+@app.post("/api/clips/publish")
+def publish_single_clip(req: PublishClipRequest):
+    """Permite postar (ou tentar repostar) um clipe já salvo no disco diretamente pelo painel."""
+    v_path = OUTPUT_DIR / req.video_id / req.filename
+    if not v_path.exists():
+        raise HTTPException(status_code=404, detail="Arquivo de vídeo não encontrado no disco.")
+
+    log_event(f"📲 Postando manualmente {req.filename} ({req.video_id}) no TikTok...")
+    res = publish_clip_to_tiktok(
+        video_path=str(v_path),
+        title=req.title,
+        hashtags=req.hashtags,
+        delete_after_post=req.delete_after
+    )
+
+    # Atualiza postagens.json se existir
+    meta_file = OUTPUT_DIR / req.video_id / "postagens.json"
+    if meta_file.exists():
+        try:
+            with open(meta_file, "r", encoding="utf-8") as f:
+                clips = json.load(f)
+            for c in clips:
+                fname = c.get("filename") or f"corte_{c.get('clip_number', 1):02d}.mp4"
+                if fname == req.filename:
+                    c["auto_post_status"] = res
+                    c["file_exists"] = v_path.exists()
+            with open(meta_file, "w", encoding="utf-8") as f:
+                json.dump(clips, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+
+    if res.get("success"):
+        log_event(f"✅ {req.filename} publicado com sucesso no TikTok!")
+    else:
+        log_event(f"⚠️ Falha ao publicar {req.filename}: {res.get('error')}")
+    return res
 
 @app.get("/api/config")
 def get_app_config():
@@ -439,11 +577,18 @@ def save_app_config(cfg: ConfigUpdate):
     return {"success": True, "message": "Configurações salvas com sucesso!"}
 
 @app.get("/api/media/{video_id}/{filename}")
-def serve_media(video_id: str, filename: str):
+def serve_media(video_id: str, filename: str, download: int = 0):
     file_path = OUTPUT_DIR / video_id / filename
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="Arquivo não encontrado")
     media_type = "video/mp4" if filename.endswith(".mp4") else "image/jpeg"
+    if download:
+        return FileResponse(
+            file_path,
+            media_type=media_type,
+            filename=f"{video_id}_{filename}",
+            headers={"Content-Disposition": f'attachment; filename="{video_id}_{filename}"'}
+        )
     return FileResponse(file_path, media_type=media_type)
 
 @app.get("/manifest.json")

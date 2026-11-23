@@ -1,5 +1,6 @@
 import json
 import re
+import time
 from google import genai
 from config import GEMINI_API_KEY, MIN_CLIP_DURATION, MAX_CLIP_DURATION
 
@@ -52,12 +53,45 @@ Retorne ESTRITAMENTE uma lista JSON válida, sem blocos de texto explicativos fo
 """
 
     client = genai.Client(api_key=key)
-    response = client.models.generate_content(
-        model='gemini-2.5-flash',
-        contents=prompt
-    )
 
-    raw_text = response.text.strip()
+    # Modelos em ordem de preferência — tenta o próximo se o atual estiver indisponível
+    MODELS = [
+        'gemini-3.8-flash',
+        'gemini-3.7-flash',
+        'gemini-3.6-flash',
+        'gemini-3.5-flash',
+        'gemini-2.5-flash-lite',
+    ]
+
+    last_error = None
+    for model_name in MODELS:
+        for attempt in range(3):  # até 3 tentativas por modelo (503 é temporário)
+            try:
+                print(f"🧠 Tentando modelo: {model_name} (tentativa {attempt + 1}/3)...")
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt
+                )
+                print(f"✅ Modelo {model_name} respondeu com sucesso!")
+                raw_text = response.text.strip()
+                break  # saiu do loop de tentativas
+            except Exception as e:
+                last_error = e
+                err_str = str(e)
+                if '503' in err_str or 'UNAVAILABLE' in err_str:
+                    wait = (attempt + 1) * 5
+                    print(f"⚠️ Modelo {model_name} sobrecarregado. Aguardando {wait}s...")
+                    time.sleep(wait)
+                elif '404' in err_str or 'NOT_FOUND' in err_str:
+                    print(f"⚠️ Modelo {model_name} indisponível. Tentando próximo...")
+                    break  # passa pro próximo modelo sem esperar
+                else:
+                    raise  # erro desconhecido, lança imediatamente
+        else:
+            continue  # todas as tentativas falharam, tenta próximo modelo
+        break  # encontrou modelo que funcionou
+    else:
+        raise RuntimeError(f"Nenhum modelo Gemini disponível. Último erro: {last_error}")
     cleaned = re.sub(r"^```(?:json)?\s*", "", raw_text)
     cleaned = re.sub(r"\s*```$", "", cleaned)
 

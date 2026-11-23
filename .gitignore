@@ -17,6 +17,9 @@ ENV/
 # Armazenamento de mídia local (vídeos baixados e gerados)
 storage/temp/
 storage/output/
+storage/chrome_profile/
+storage/.tiktok_session.json
+storage/debug_*.png
 
 # Executaveis locais pesados
 ffmpeg.exe

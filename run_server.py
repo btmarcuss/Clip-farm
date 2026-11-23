@@ -38,4 +38,12 @@ if __name__ == "__main__":
     print("   'Adicionar à Tela de Início' para usar como Aplicativo (PWA)!")
     print("=" * 65)
     
-    uvicorn.run(app, host=SERVER_HOST, port=SERVER_PORT)
+    uvicorn.run(
+        app,
+        host=SERVER_HOST,
+        port=SERVER_PORT,
+        workers=1,
+        timeout_keep_alive=300,   # mantém conexões vivas por 5 min
+        timeout_graceful_shutdown=30,
+        loop="asyncio",
+    )
