@@ -5,6 +5,7 @@ import time
 import threading
 import requests
 from pathlib import Path
+from typing import Callable, List, Dict, Any, Optional
 from config import BASE_DIR, TIKTOK_ACCESS_TOKEN, TIKTOK_PRIVACY_LEVEL, WEBHOOK_PUBLISH_URL
 from tiktok_auth import get_tiktok_session
 
@@ -16,11 +17,7 @@ _PLAYWRIGHT_LOCK = threading.Lock()
 
 
 def open_tiktok_login_window() -> dict:
-    """
-    Abre uma janela real do Google Chrome para que o usuário faça o login
-    no TikTok (via Google, Telefone, QR Code ou Usuário/Senha com captcha).
-    A sessão e todos os cookies ficam salvos permanentemente em storage/chrome_profile.
-    """
+    """Abre o Chrome nativo para o usuário efetuar login no TikTok e salvar a sessão localmente."""
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
@@ -45,18 +42,17 @@ def open_tiktok_login_window() -> dict:
                 )
                 page = context.new_page()
                 page.goto("https://www.tiktok.com/login", timeout=60000)
-                print("👉 Faça seu login na janela do navegador que se abriu. Ao terminar, você pode fechar a janela do Chrome.")
 
                 start_time = time.time()
                 logged_in = False
-                while time.time() - start_time < 300:  # espera até 5 minutos
-                    time.sleep(3)
+                while time.time() - start_time < 300:
+                    time.sleep(2)
                     try:
                         current_url = page.url.lower()
-                        if "/login" not in current_url and ("tiktok.com" in current_url):
+                        if "/login" not in current_url and "tiktok.com" in current_url:
                             logged_in = True
                             print("🎉 Login no TikTok detectado com sucesso!")
-                            time.sleep(3)
+                            time.sleep(2)
                             break
                     except Exception:
                         break
@@ -94,7 +90,7 @@ def is_tiktok_browser_logged_in() -> bool:
 
 
 def _dismiss_modals(page):
-    """Fecha pop-ups ou modais do TikTok Studio (ex.: 'Ativar verificações automáticas de conteúdo?')."""
+    """Fecha rapidamente pop-ups ou modais do TikTok Studio (ex.: 'Ativar verificações automáticas de conteúdo?')."""
     modal_selectors = [
         '.TUXModal-overlay button:has-text("Cancelar")',
         '.TUXModal-overlay button:has-text("Cancel")',
@@ -117,20 +113,20 @@ def _dismiss_modals(page):
             btn = page.locator(selector).first
             if btn.count() > 0 and btn.is_visible():
                 print(f"   🧹 Fechando modal do TikTok Studio ({selector})...")
-                btn.click(timeout=2000)
-                time.sleep(0.8)
+                btn.click(timeout=1500)
+                time.sleep(0.35)
         except Exception:
             pass
     try:
         if page.locator(".TUXModal-overlay").count() > 0:
             page.keyboard.press("Escape")
-            time.sleep(0.4)
+            time.sleep(0.25)
     except Exception:
         pass
 
 
 def _confirm_publish_modals(page):
-    """Caso o TikTok Studio abra um modal de confirmação pós-clique em Publicar (ex: 'Publicar agora'), confirma."""
+    """Confirma modais extras pós-clique em Publicar (ex.: 'Publicar agora' / 'Continuar')."""
     for selector in [
         'button:has-text("Publicar agora")',
         'button:has-text("Post now")',
@@ -143,8 +139,8 @@ def _confirm_publish_modals(page):
             btn = page.locator(selector).first
             if btn.count() > 0 and btn.is_visible():
                 print(f"   ✅ Confirmando modal do TikTok: {selector}")
-                btn.click(timeout=3000)
-                time.sleep(1)
+                btn.click(timeout=2000)
+                time.sleep(0.5)
         except Exception:
             pass
 
@@ -174,220 +170,278 @@ def _is_publish_confirmed(page) -> bool:
         return False
 
 
-def upload_clip_via_playwright(video_path: str, caption: str, delete_after: bool = True) -> dict:
+def _delete_local_clip_files(video_file: Path) -> bool:
+    try:
+        video_file.unlink(missing_ok=True)
+        video_file.with_suffix(".ass").unlink(missing_ok=True)
+        video_file.with_name(f"{video_file.stem}_thumb.jpg").unlink(missing_ok=True)
+        print(f"   🗑️ Arquivo local excluído após confirmação de postagem: {video_file.name}")
+        return True
+    except Exception as e_del:
+        print(f"   ⚠️ Aviso ao excluir arquivo local: {e_del}")
+        return False
+
+
+def _upload_single_on_context(context, video_path: str, caption: str, delete_after: bool = True) -> dict:
     """
-    Realiza o upload direto no TikTok Studio usando o Chrome nativo com a sessão salva.
-    - Usa Lock global para evitar conflito de perfil do Chrome entre múltiplas threads.
-    - Aguarda o upload finalizar (botão Publicar habilitado).
-    - Só apaga o arquivo local se delete_after=True E a publicação for realmente confirmada!
+    Executa o upload de 1 clipe reutilizando um BrowserContext já aberto (sem reiniciar o Chrome!).
+    Usa esperas reativas (polling 1s) para máxima velocidade.
     """
     video_file = Path(video_path)
     if not video_file.exists():
         return {"success": False, "status": "failed", "error": f"Arquivo não encontrado: {video_path}"}
 
+    page = context.new_page()
+    try:
+        t0 = time.monotonic()
+        page.goto("https://www.tiktok.com/tiktokstudio/upload", timeout=60000, wait_until="domcontentloaded")
+
+        # Espera reativa: ou redireciona para /login ou o input[type="file"] aparece
+        file_input = None
+        for _ in range(25):
+            if "login" in page.url.lower():
+                return {
+                    "success": False,
+                    "status": "need_login",
+                    "error": "Sessão do TikTok expirou. Conecte sua conta novamente na aba Configurações."
+                }
+            loc = page.locator('input[type="file"]').first
+            if loc.count() > 0:
+                file_input = loc
+                break
+            for frame in page.frames:
+                try:
+                    if frame.locator('input[type="file"]').count() > 0:
+                        file_input = frame.locator('input[type="file"]').first
+                        break
+                except Exception:
+                    pass
+            if file_input:
+                break
+            time.sleep(1.0)
+
+        if not file_input or file_input.count() == 0:
+            try:
+                page.screenshot(path=str(DEBUG_SCREENSHOT_PATH))
+            except Exception:
+                pass
+            return {
+                "success": False,
+                "status": "failed",
+                "error": "Campo de upload do TikTok Studio não encontrado. O vídeo foi mantido para download."
+            }
+
+        print(f"   📤 Anexando {video_file.name} ({video_file.stat().st_size / (1024*1024):.1f} MB)...")
+        file_input.set_input_files(str(video_file.resolve()))
+
+        # Polling reativo a cada 1.2s aguardando upload finalizar + botão Publicar habilitado (até 90s)
+        upload_ready = False
+        publish_btn = None
+        up_start = time.monotonic()
+        while time.monotonic() - up_start < 90:
+            time.sleep(1.2)
+            _dismiss_modals(page)
+            btn = page.locator('button[data-e2e="post_video_button"], button:has-text("Publicar"), button:has-text("Post")').first
+            if btn.count() > 0:
+                try:
+                    is_dis = btn.is_disabled()
+                    aria_dis = btn.get_attribute("aria-disabled")
+                    body_low = page.locator("body").inner_text().lower()
+                    has_uploaded = any(k in body_low for k in ("enviado", "uploaded", "substituir", "replace"))
+                    if has_uploaded and not is_dis and aria_dis != "true":
+                        upload_ready = True
+                        publish_btn = btn
+                        print(f"   ✅ Vídeo carregado no TikTok Studio em {time.monotonic() - up_start:.1f}s!")
+                        break
+                except Exception:
+                    pass
+
+        if not upload_ready or publish_btn is None:
+            try:
+                page.screenshot(path=str(DEBUG_SCREENSHOT_PATH))
+            except Exception:
+                pass
+            return {
+                "success": False,
+                "status": "failed",
+                "error": "Tempo esgotado aguardando o TikTok processar o vídeo. O corte foi mantido para download."
+            }
+
+        # Preenche a legenda instantaneamente via insert_text (suporta emojis e acentos sem delay)
+        caption_editor = page.locator('div[contenteditable="true"], div.public-DraftEditor-content, textarea').first
+        if caption_editor.count() > 0:
+            try:
+                caption_editor.scroll_into_view_if_needed(timeout=2000)
+                caption_editor.click(force=True, timeout=3000)
+                page.keyboard.press("Control+A")
+                page.keyboard.press("Backspace")
+                time.sleep(0.2)
+                page.keyboard.insert_text(caption)
+                print("   📝 Legenda e hashtags preenchidas.")
+                time.sleep(0.8)
+            except Exception as e_cap:
+                print(f"   ⚠️ Aviso ao preencher legenda: {e_cap}")
+
+        # Garante zero modais na frente antes de clicar em Publicar
+        _dismiss_modals(page)
+        print("   🚀 Clicando no botão Publicar...")
+        publish_btn.scroll_into_view_if_needed(timeout=3000)
+        publish_btn.click(timeout=10000)
+
+        # Polling reativo a cada 1.2s aguardando confirmação real (até 25s)
+        published_ok = False
+        pub_start = time.monotonic()
+        while time.monotonic() - pub_start < 25:
+            time.sleep(1.2)
+            _confirm_publish_modals(page)
+            if _is_publish_confirmed(page):
+                published_ok = True
+                break
+
+        if not published_ok:
+            try:
+                page.screenshot(path=str(DEBUG_SCREENSHOT_PATH))
+            except Exception:
+                pass
+            print("   ⚠️ O TikTok não exibiu confirmação de publicação. Mantendo arquivo para download.")
+            return {
+                "success": False,
+                "status": "failed",
+                "error": "TikTok não confirmou a publicação (possível captcha ou revisão). Vídeo mantido para download."
+            }
+
+        print(f"   🎉 Publicação CONFIRMADA em {time.monotonic() - t0:.1f}s!")
+        deleted = _delete_local_clip_files(video_file) if delete_after else False
+
+        return {
+            "success": True,
+            "provider": "tiktok_browser_automation",
+            "status": "published",
+            "caption": caption,
+            "local_file_deleted": deleted
+        }
+    except Exception as e:
+        print(f"   ⚠️ Falha no upload Playwright: {e}")
+        return {
+            "success": False,
+            "status": "failed",
+            "error": f"Erro no envio automático: {str(e)}. Vídeo mantido para download."
+        }
+    finally:
+        try:
+            page.close()
+        except Exception:
+            pass
+
+
+def _launch_tiktok_context(p):
+    CHROME_PROFILE_DIR.mkdir(parents=True, exist_ok=True)
+    context = p.chromium.launch_persistent_context(
+        user_data_dir=str(CHROME_PROFILE_DIR),
+        channel="chrome",
+        headless=True,
+        viewport={"width": 1280, "height": 900},
+        args=[
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-blink-features=AutomationControlled",
+            "--disable-gpu",
+        ]
+    )
+    sid = get_tiktok_session().get("session_id")
+    if sid:
+        context.add_cookies([
+            {"name": "sessionid", "value": sid, "domain": ".tiktok.com", "path": "/", "httpOnly": True, "secure": True},
+            {"name": "sessionid_ss", "value": sid, "domain": ".tiktok.com", "path": "/", "httpOnly": True, "secure": True},
+            {"name": "sid_tt", "value": sid, "domain": ".tiktok.com", "path": "/", "httpOnly": True, "secure": True},
+        ])
+    return context
+
+
+def upload_clip_via_playwright(video_path: str, caption: str, delete_after: bool = True) -> dict:
+    """Publica um único clipe via Playwright com lock global."""
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
         return {"success": False, "status": "failed", "error": "Playwright não disponível"}
 
-    CHROME_PROFILE_DIR.mkdir(parents=True, exist_ok=True)
-    print(f"\n📲 [PLAYWRIGHT AUTO-POST] Aguardando vez para publicar no TikTok...")
-    print(f"   Vídeo: {video_file.name}")
-    print(f"   Legenda: {caption[:70]}...")
-
     with _PLAYWRIGHT_LOCK:
-        context = None
         try:
             with sync_playwright() as p:
-                context = p.chromium.launch_persistent_context(
-                    user_data_dir=str(CHROME_PROFILE_DIR),
-                    channel="chrome",
-                    headless=True,
-                    viewport={"width": 1280, "height": 900},
-                    args=[
-                        "--no-sandbox",
-                        "--disable-setuid-sandbox",
-                        "--disable-blink-features=AutomationControlled",
-                    ]
-                )
-
-                # Injeta cookies da sessão se disponíveis
-                sid = get_tiktok_session().get("session_id")
-                if sid:
-                    context.add_cookies([
-                        {"name": "sessionid", "value": sid, "domain": ".tiktok.com", "path": "/", "httpOnly": True, "secure": True},
-                        {"name": "sessionid_ss", "value": sid, "domain": ".tiktok.com", "path": "/", "httpOnly": True, "secure": True},
-                        {"name": "sid_tt", "value": sid, "domain": ".tiktok.com", "path": "/", "httpOnly": True, "secure": True},
-                    ])
-
-                page = context.new_page()
-                upload_url = "https://www.tiktok.com/tiktokstudio/upload"
-                page.goto(upload_url, timeout=60000, wait_until="domcontentloaded")
-                time.sleep(6)
-
-                if "login" in page.url.lower():
-                    context.close()
-                    return {
-                        "success": False,
-                        "status": "need_login",
-                        "error": "Sessão do TikTok expirou. Conecte sua conta novamente na aba Configurações."
-                    }
-
-                _dismiss_modals(page)
-
-                # Aguarda o seletor input[type="file"] aparecer
+                context = _launch_tiktok_context(p)
                 try:
-                    page.wait_for_selector('input[type="file"]', state="attached", timeout=25000)
-                except Exception:
-                    pass
-
-                file_input = page.locator('input[type="file"]').first
-                if not file_input.count():
-                    for frame in page.frames:
-                        try:
-                            if frame.locator('input[type="file"]').count() > 0:
-                                file_input = frame.locator('input[type="file"]').first
-                                break
-                        except Exception:
-                            pass
-
-                if not file_input or file_input.count() == 0:
-                    try:
-                        page.screenshot(path=str(DEBUG_SCREENSHOT_PATH))
-                    except Exception:
-                        pass
+                    return _upload_single_on_context(context, video_path, caption, delete_after=delete_after)
+                finally:
                     context.close()
-                    return {
-                        "success": False,
-                        "status": "failed",
-                        "error": "Campo de upload do TikTok Studio não encontrado. O vídeo foi mantido para download."
-                    }
-
-                print("   📤 Anexando arquivo de vídeo vertical no TikTok Studio...")
-                file_input.set_input_files(str(video_file.resolve()))
-
-                # Aguarda o upload finalizar e o botão Publicar ficar habilitado (até 90s)
-                print("   ⏳ Aguardando upload e processamento do vídeo no TikTok...")
-                upload_ready = False
-                publish_btn = None
-                for elapsed in range(0, 90, 3):
-                    time.sleep(3)
-                    _dismiss_modals(page)
-                    btn = page.locator('button[data-e2e="post_video_button"], button:has-text("Publicar"), button:has-text("Post")').first
-                    if btn.count() > 0:
-                        try:
-                            is_dis = btn.is_disabled()
-                            aria_dis = btn.get_attribute("aria-disabled")
-                            body_low = page.locator("body").inner_text().lower()
-                            has_uploaded = any(k in body_low for k in ("enviado", "uploaded", "substituir", "replace"))
-                            if has_uploaded and not is_dis and aria_dis != "true":
-                                upload_ready = True
-                                publish_btn = btn
-                                print(f"   ✅ Vídeo carregado no TikTok Studio em {elapsed + 3}s!")
-                                break
-                        except Exception:
-                            pass
-
-                if not upload_ready or publish_btn is None:
-                    try:
-                        page.screenshot(path=str(DEBUG_SCREENSHOT_PATH))
-                    except Exception:
-                        pass
-                    context.close()
-                    return {
-                        "success": False,
-                        "status": "failed",
-                        "error": "Tempo esgotado aguardando o TikTok processar o vídeo. O corte foi mantido para download."
-                    }
-
-                # Preenche a legenda / título / hashtags usando insert_text (suporta emojis e acentos)
-                caption_editor = page.locator('div[contenteditable="true"], div.public-DraftEditor-content, textarea').first
-                if caption_editor.count() > 0:
-                    try:
-                        caption_editor.scroll_into_view_if_needed(timeout=3000)
-                        caption_editor.click(force=True, timeout=5000)
-                        page.keyboard.press("Control+A")
-                        page.keyboard.press("Backspace")
-                        time.sleep(0.4)
-                        page.keyboard.insert_text(caption)
-                        print("   📝 Legenda e hashtags preenchidas.")
-                        time.sleep(2)
-                    except Exception as e_cap:
-                        print(f"   ⚠️ Aviso ao preencher legenda: {e_cap}")
-
-                # Garante que nenhum TUXModal-overlay esteja bloqueando antes de clicar em Publicar
-                _dismiss_modals(page)
-                time.sleep(0.6)
-
-                # Clica no botão Publicar
-                print("   🚀 Clicando no botão Publicar...")
-                publish_btn.scroll_into_view_if_needed(timeout=5000)
-                publish_btn.click(timeout=10000)
-
-                # Aguarda confirmação real da publicação (até 30s), aceitando modais de confirmação se surgirem
-                published_ok = False
-                for _ in range(10):
-                    time.sleep(3)
-                    _confirm_publish_modals(page)
-                    if _is_publish_confirmed(page):
-                        published_ok = True
-                        break
-
-                if not published_ok:
-                    try:
-                        page.screenshot(path=str(DEBUG_SCREENSHOT_PATH))
-                    except Exception:
-                        pass
-                    context.close()
-                    print("   ⚠️ O TikTok não exibiu confirmação de publicação. Mantendo arquivo para download.")
-                    return {
-                        "success": False,
-                        "status": "failed",
-                        "error": "TikTok não confirmou a publicação (possível captcha ou revisão). Vídeo mantido para download."
-                    }
-
-                context.close()
-                print("   🎉 Publicação no TikTok CONFIRMADA com sucesso!")
-
-                deleted = False
-                if delete_after:
-                    try:
-                        video_file.unlink(missing_ok=True)
-                        ass_file = video_file.with_suffix(".ass")
-                        thumb_file = video_file.with_name(f"{video_file.stem}_thumb.jpg")
-                        ass_file.unlink(missing_ok=True)
-                        thumb_file.unlink(missing_ok=True)
-                        deleted = True
-                        print(f"   🗑️ Arquivo local excluído após confirmação de postagem: {video_file.name}")
-                    except Exception as e_del:
-                        print(f"   ⚠️ Aviso ao excluir arquivo local: {e_del}")
-
-                return {
-                    "success": True,
-                    "provider": "tiktok_browser_automation",
-                    "status": "published",
-                    "caption": caption,
-                    "local_file_deleted": deleted
-                }
-
         except Exception as e:
-            print(f"   ⚠️ Falha no upload Playwright: {e}")
-            return {
-                "success": False,
-                "status": "failed",
-                "error": f"Erro no envio automático: {str(e)}. Vídeo mantido para download."
-            }
+            return {"success": False, "status": "failed", "error": str(e)}
+
+
+def publish_clips_batch(
+    clips_specs: List[Dict[str, Any]],
+    delete_after_post: bool = True,
+    on_progress: Optional[Callable[[int, int, Dict[str, Any]], None]] = None
+) -> List[Dict[str, Any]]:
+    """
+    OTIMIZAÇÃO DE LOTE: Abre o Google Chrome UMA ÚNICA VEZ para publicar todos os cortes do job
+    em sequência na mesma sessão, economizando ~8-12s de inicialização por corte!
+    """
+    if not clips_specs:
+        return []
+
+    # Se não houver sessão Chrome ativa, cai no fluxo individual (API oficial / Webhook / Fallback)
+    if not is_tiktok_browser_logged_in():
+        results = []
+        for idx, spec in enumerate(clips_specs, 1):
+            res = publish_clip_to_tiktok(
+                video_path=spec["video_path"],
+                title=spec["title"],
+                hashtags=spec["hashtags"],
+                delete_after_post=delete_after_post,
+            )
+            results.append(res)
+            if on_progress:
+                on_progress(idx, len(clips_specs), res)
+        return results
+
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        return [
+            {"success": False, "status": "failed", "error": "Playwright não disponível", "local_file_deleted": False}
+            for _ in clips_specs
+        ]
+
+    results = []
+    with _PLAYWRIGHT_LOCK:
+        with sync_playwright() as p:
+            print(f"\n⚡ [BATCH TIKTOK] Abrindo Chrome 1 única vez para publicar {len(clips_specs)} corte(s)...")
+            context = _launch_tiktok_context(p)
+            try:
+                for idx, spec in enumerate(clips_specs, 1):
+                    caption = f"{spec['title']} {' '.join(spec.get('hashtags', []))}"[:2200]
+                    print(f"📲 [Batch {idx}/{len(clips_specs)}] Publicando: {Path(spec['video_path']).name}")
+                    res = _upload_single_on_context(
+                        context,
+                        video_path=spec["video_path"],
+                        caption=caption,
+                        delete_after=delete_after_post,
+                    )
+                    results.append(res)
+                    if on_progress:
+                        on_progress(idx, len(clips_specs), res)
+                    # Se a sessão expirou, não adianta tentar os demais
+                    if res.get("status") == "need_login":
+                        for rem in clips_specs[idx:]:
+                            results.append(res)
+                        break
+            finally:
+                context.close()
+    return results
 
 
 def publish_clip_to_tiktok(video_path: str, title: str, hashtags: list, delete_after_post: bool = True) -> dict:
-    """
-    Publica o clipe vertical automaticamente no TikTok.
-    Ordem de execução:
-    1. Automação com Chrome / Playwright (postagem real no TikTok Studio)
-    2. TikTok Developer API oficial (se configurada)
-    3. Webhook (Make / N8N / Zapier)
-    4. Fallback: mantém o vídeo salvo para download e informa o motivo.
-    """
+    """Publica um único clipe (Chrome/Playwright -> API oficial -> Webhook -> Mantido p/ download)."""
     video_file = Path(video_path)
     if not video_file.exists():
         raise FileNotFoundError(f"Arquivo de vídeo não encontrado: {video_path}")
@@ -395,10 +449,6 @@ def publish_clip_to_tiktok(video_path: str, title: str, hashtags: list, delete_a
     full_caption = f"{title} {' '.join(hashtags)}"[:2200]
     session_data = get_tiktok_session()
     api_token = session_data.get("access_token") or TIKTOK_ACCESS_TOKEN
-
-    print(f"\n📲 [AUTO-POST TIKTOK] Iniciando publicação automática...")
-    print(f"   Legenda: {full_caption[:60]}...")
-    print(f"   Excluir após postar: {delete_after_post}")
 
     last_error = None
     if is_tiktok_browser_logged_in():
@@ -409,10 +459,7 @@ def publish_clip_to_tiktok(video_path: str, title: str, hashtags: list, delete_a
 
     if api_token:
         try:
-            headers = {
-                "Authorization": f"Bearer {api_token}",
-                "Content-Type": "application/json"
-            }
+            headers = {"Authorization": f"Bearer {api_token}", "Content-Type": "application/json"}
             file_size = video_file.stat().st_size
             init_url = "https://open.tiktokapis.com/v2/post/publish/video/init/"
             init_payload = {
@@ -421,74 +468,52 @@ def publish_clip_to_tiktok(video_path: str, title: str, hashtags: list, delete_a
                     "privacy_level": TIKTOK_PRIVACY_LEVEL,
                     "disable_duet": False,
                     "disable_stitch": False,
-                    "disable_comment": False
+                    "disable_comment": False,
                 },
                 "source_info": {
                     "source": "FILE_UPLOAD",
                     "video_size": file_size,
                     "chunk_size": file_size,
-                    "total_chunk_count": 1
-                }
+                    "total_chunk_count": 1,
+                },
             }
             init_resp = requests.post(init_url, json=init_payload, headers=headers, timeout=30)
             init_data = init_resp.json()
-
             if "data" in init_data and "upload_url" in init_data["data"]:
                 upload_url = init_data["data"]["upload_url"]
                 publish_id = init_data["data"].get("publish_id")
-
                 with open(video_file, "rb") as vf:
-                    upload_headers = {
-                        "Content-Type": "video/mp4",
-                        "Content-Range": f"bytes 0-{file_size - 1}/{file_size}"
-                    }
-                    put_resp = requests.put(upload_url, data=vf, headers=upload_headers, timeout=120)
-
+                    put_resp = requests.put(
+                        upload_url,
+                        data=vf,
+                        headers={"Content-Type": "video/mp4", "Content-Range": f"bytes 0-{file_size - 1}/{file_size}"},
+                        timeout=120,
+                    )
                 if put_resp.status_code in (200, 201):
-                    print(f"   🎉 VÍDEO PUBLICADO NO TIKTOK! (Publish ID: {publish_id})")
-                    if delete_after_post:
-                        video_file.unlink(missing_ok=True)
-                    return {
-                        "success": True,
-                        "provider": "tiktok_api",
-                        "publish_id": publish_id,
-                        "status": "published",
-                        "local_file_deleted": delete_after_post
-                    }
+                    deleted = _delete_local_clip_files(video_file) if delete_after_post else False
+                    return {"success": True, "provider": "tiktok_api", "publish_id": publish_id, "status": "published", "local_file_deleted": deleted}
         except Exception as e:
             last_error = str(e)
-            print(f"   ⚠️ Erro na TikTok API: {e}")
 
     if WEBHOOK_PUBLISH_URL:
-        print(f"   🚀 Enviando para webhook: {WEBHOOK_PUBLISH_URL}")
         try:
             with open(video_file, "rb") as vf:
                 resp = requests.post(
                     WEBHOOK_PUBLISH_URL,
                     data={"title": title, "hashtags": json.dumps(hashtags), "caption": full_caption},
                     files={"video": (video_file.name, vf, "video/mp4")},
-                    timeout=60
+                    timeout=60,
                 )
             if resp.status_code in (200, 201):
-                print(f"   ✅ Publicado com sucesso via Webhook!")
-                if delete_after_post:
-                    video_file.unlink(missing_ok=True)
-                return {
-                    "success": True,
-                    "provider": "webhook",
-                    "status": "published",
-                    "local_file_deleted": delete_after_post
-                }
+                deleted = _delete_local_clip_files(video_file) if delete_after_post else False
+                return {"success": True, "provider": "webhook", "status": "published", "local_file_deleted": deleted}
         except Exception as e:
             last_error = str(e)
-            print(f"   ⚠️ Falha no webhook: {e}")
 
-    # Fallback: NÃO apaga o vídeo, deixa disponível para download no site
-    print(f"   ℹ️ Vídeo mantido no disco para download. Motivo: {last_error or 'Conta do TikTok não conectada.'}")
     return {
         "success": False,
         "provider": "local_saved",
         "status": "failed" if last_error else "need_login",
         "error": last_error or "Conecte sua conta do TikTok na aba Configurações para postagem automática.",
-        "local_file_deleted": False
+        "local_file_deleted": False,
     }

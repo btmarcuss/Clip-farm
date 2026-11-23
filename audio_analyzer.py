@@ -5,15 +5,17 @@ from ffmpeg_helper import get_ffmpeg_exe
 
 def detect_audio_spikes(audio_path: str, top_n: int = 60) -> list:
     """
-    Analisa o áudio usando FFmpeg silencedetect para identificar momentos de
-    energia sonora (retomadas após pausa, gritos, risadas ou reações) distribuídos
-    ao longo de TODO o vídeo — não apenas no início.
+    Analisa diretamente a faixa de áudio (MP4 ou WAV) usando FFmpeg silencedetect
+    com -vn -sn -dn (ignora vídeo) para detectar picos em ~1 segundo.
     """
-    print("🔊 Analisando picos de energia sonora e reações em todo o áudio...")
+    print("🔊 Analisando picos de energia sonora em todo o áudio...")
 
     ffmpeg_bin = get_ffmpeg_exe()
     cmd = [
-        ffmpeg_bin, "-i", str(audio_path),
+        ffmpeg_bin,
+        "-threads", "0",
+        "-i", str(audio_path),
+        "-vn", "-sn", "-dn",
         "-af", "silencedetect=noise=-30dB:d=0.5",
         "-f", "null", "-"
     ]

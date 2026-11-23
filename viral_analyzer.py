@@ -2,6 +2,7 @@ import json
 import math
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from google import genai
 from google.genai import types
 from config import GEMINI_API_KEY, MIN_CLIP_DURATION, MAX_CLIP_DURATION
@@ -14,58 +15,125 @@ MAX_CLIPS_PER_CHUNK = 12
 MAX_CHARS_PER_CHUNK = 22000
 
 
+def _parse_gemini_json_resilient(raw_text: str) -> list:
+    """Faz parse resiliente da resposta JSON do Gemini (remove markdown, trailing commas e texto extra)."""
+    cleaned = re.sub(r"^```(?:json)?\s*", "", (raw_text or "").strip())
+    cleaned = re.sub(r"\s*```$", "", cleaned).strip()
+
+    # Tenta parse direto primeiro
+    for candidate in (cleaned, re.sub(r",\s*([\]}])", r"\1", cleaned)):
+        try:
+            parsed = json.loads(candidate)
+            if isinstance(parsed, dict) and "clips" in parsed:
+                parsed = parsed["clips"]
+            if isinstance(parsed, list):
+                return parsed
+        except Exception:
+            pass
+
+    # Fallback: extrai apenas o bloco de array [...]
+    match = re.search(r"\[[\s\S]*\]", cleaned)
+    if match:
+        snippet = re.sub(r",\s*([\]}])", r"\1", match.group(0))
+        parsed = json.loads(snippet)
+        if isinstance(parsed, list):
+            return parsed
+
+    raise ValueError("Resposta JSON inválida da IA")
+
+
 def _call_gemini_json(client: genai.Client, prompt: str) -> list:
-    """Chama o Gemini com fallback automático entre modelos e retorno JSON estrito."""
+    """
+    Chama o Gemini priorizando os modelos Flash-Lite (muito mais rápidos e estáveis),
+    trocando rapidamente de modelo em caso de 503 para nunca travar o pipeline.
+    """
     models = [
+        "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite",
         "gemini-3.5-flash",
         "gemini-3.8-flash",
         "gemini-3.7-flash",
         "gemini-3.6-flash",
-        "gemini-2.5-flash-lite",
     ]
 
     last_error = None
-    raw_text = ""
     for model_name in models:
-        for attempt in range(2):
-            try:
-                print(f"🧠 Chamando {model_name} (tentativa {attempt + 1}/2)...")
-                response = client.models.generate_content(
-                    model=model_name,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        response_mime_type="application/json"
-                    )
+        try:
+            print(f"🧠 Chamando {model_name}...")
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    http_options=types.HttpOptions(timeout=25000),
                 )
-                print(f"✅ Modelo {model_name} respondeu com sucesso!")
-                raw_text = (response.text or "").strip()
-                break
-            except Exception as e:
-                last_error = e
-                err_str = str(e)
-                if "503" in err_str or "UNAVAILABLE" in err_str or "429" in err_str:
-                    wait = (attempt + 1) * 4
-                    print(f"⚠️ Modelo {model_name} ocupado. Aguardando {wait}s...")
-                    time.sleep(wait)
-                elif "404" in err_str or "NOT_FOUND" in err_str:
-                    print(f"⚠️ Modelo {model_name} indisponível. Tentando próximo...")
-                    break
-                else:
-                    raise
-        else:
+            )
+            raw_text = (response.text or "").strip()
+            parsed = _parse_gemini_json_resilient(raw_text)
+            if parsed:
+                print(f"✅ Modelo {model_name} respondeu com JSON válido ({len(parsed)} itens)!")
+                return parsed
+        except Exception as e:
+            last_error = e
+            err_str = str(e)
+            print(f"⚠️ {model_name} indisponível/lento ({err_str[:80]}). Pulando imediatamente p/ próximo...")
             continue
-        if raw_text:
+
+    raise RuntimeError(f"Todos os modelos Gemini indisponíveis no momento. Último erro: {last_error}")
+
+
+def _local_smart_fallback_clips(transcript_segments: list, target_clips: int, audio_spikes: list = None) -> list:
+    """
+    Fallback instantâneo (0.01s) caso toda a API do Gemini esteja sofrendo pico 503 simultâneo:
+    seleciona janelas de fala completas alinhadas aos picos de energia sonora distribuídos pelo vídeo.
+    """
+    if not transcript_segments:
+        return []
+    video_start = transcript_segments[0]["start"]
+    video_end = transcript_segments[-1]["end"]
+    total_dur = max(1.0, video_end - video_start)
+    clip_len = min(max(MIN_CLIP_DURATION + 12, 35), MAX_CLIP_DURATION)
+
+    # Cria âncoras distribuídas ao longo do vídeo (priorizando picos de áudio se existirem)
+    anchors = []
+    if audio_spikes:
+        anchors = [sp["timestamp"] for sp in audio_spikes]
+    if len(anchors) < target_clips:
+        step = total_dur / max(target_clips, 1)
+        anchors = [video_start + i * step for i in range(target_clips)]
+
+    clips = []
+    used_until = -1.0
+    for idx, anchor in enumerate(anchors):
+        if len(clips) >= target_clips:
             break
-    else:
-        raise RuntimeError(f"Nenhum modelo Gemini disponível. Último erro: {last_error}")
-
-    cleaned = re.sub(r"^```(?:json)?\s*", "", raw_text)
-    cleaned = re.sub(r"\s*```$", "", cleaned)
-
-    parsed = json.loads(cleaned)
-    if isinstance(parsed, dict) and "clips" in parsed:
-        parsed = parsed["clips"]
-    return parsed if isinstance(parsed, list) else []
+        # Encontra o segmento de fala mais próximo da âncora que não sobreponha o corte anterior
+        start_seg = next((s for s in transcript_segments if s["start"] >= max(anchor - 4.0, used_until + 1.0)), None)
+        if not start_seg:
+            continue
+        st = start_seg["start"]
+        # Fecha o corte no final de um segmento natural dentro de [MIN_CLIP_DURATION, MAX_CLIP_DURATION]
+        end_seg = None
+        for s in transcript_segments:
+            d = s["end"] - st
+            if d >= MIN_CLIP_DURATION:
+                end_seg = s
+                if d >= clip_len:
+                    break
+        en = end_seg["end"] if end_seg else min(video_end, st + clip_len)
+        if en - st < 15.0:
+            continue
+        used_until = en
+        snippet_text = start_seg["text"].strip()[:75]
+        clips.append({
+            "start_time": round(st, 2),
+            "end_time": round(en, 2),
+            "hook_phrase": snippet_text,
+            "reason": "Seleção automática baseada em pico de energia sonora e ritmo de fala",
+            "suggested_title": snippet_text if len(snippet_text) > 12 else f"Corte #{len(clips)+1}",
+            "hashtags": ["#cortes", "#clips", "#foryou", "#reels", "#shorts"],
+        })
+    return clips
 
 
 def _split_transcript_into_chunks(transcript_segments: list, max_chars: int = MAX_CHARS_PER_CHUNK, max_seconds: float = 720.0) -> list:
@@ -183,8 +251,7 @@ def find_viral_moments(transcript_segments: list, max_clips: int = 3, audio_spik
     all_clips = []
     total_chunks = len(chunks)
 
-    # Distribui a meta de cortes proporcionalmente pela duração de cada bloco
-    for idx, chunk in enumerate(chunks, 1):
+    def _analyze_chunk(idx: int, chunk: dict) -> list:
         chunk_dur = max(1.0, chunk["end"] - chunk["start"])
         if max_mode:
             avg_slot = max(25.0, float(MIN_CLIP_DURATION) + 10.0)
@@ -193,7 +260,6 @@ def find_viral_moments(transcript_segments: list, max_clips: int = 3, audio_spik
             prop = chunk_dur / total_duration
             chunk_quota = max(1, min(MAX_CLIPS_PER_CHUNK, int(math.ceil(target_clips * prop))))
 
-        # Filtra apenas os picos sonoros que pertencem a este bloco
         chunk_spikes = []
         if audio_spikes:
             chunk_spikes = [sp for sp in audio_spikes if chunk["start"] <= sp["timestamp"] <= chunk["end"]]
@@ -213,7 +279,7 @@ def find_viral_moments(transcript_segments: list, max_clips: int = 3, audio_spik
         )
 
         prompt = f"""
-Você é um estrategista e editor sênior de conteúdo viral para TikTok, Instagram Reels e YouTube Shorts.
+Você é um estrategista e editor sênior de conteúdo curto para TikTok, Instagram Reels e YouTube Shorts.
 Analise o bloco {idx}/{total_chunks} da transcrição ({round(chunk['start'], 1)}s até {round(chunk['end'], 1)}s) e identifique até {chunk_quota} cortes de alta retenção.
 {extra_instruction}
 {spikes_info}
@@ -234,30 +300,40 @@ Retorne ESTRITAMENTE uma lista JSON válida:
     "start_time": 120.5,
     "end_time": 172.0,
     "hook_phrase": "Frase de abertura dos primeiros 3 segundos",
-    "reason": "Motivo da viralidade",
-    "suggested_title": "Título magnético para o TikTok",
-    "hashtags": ["#cortes", "#viral", "#foryou", "#reels", "#shorts"]
+    "reason": "Motivo da seleção",
+    "suggested_title": "Título curto para o TikTok",
+    "hashtags": ["#cortes", "#clips", "#foryou", "#reels", "#shorts"]
   }}
 ]
 """
 
         print(f"📦 Analisando bloco {idx}/{total_chunks} ({int(chunk['start'])}s–{int(chunk['end'])}s) -> meta: até {chunk_quota} cortes...")
-        try:
-            chunk_clips = _call_gemini_json(client, prompt)
-            all_clips.extend(chunk_clips)
-        except Exception as e:
-            print(f"⚠️ Erro no bloco {idx}/{total_chunks}: {e}")
-            if total_chunks == 1:
-                raise
+        return _call_gemini_json(client, prompt)
 
-        if not max_mode and len(all_clips) >= target_clips + 4:
-            # Já tem margem suficiente se tiver muitos blocos
-            pass
+    if total_chunks == 1:
+        try:
+            all_clips.extend(_analyze_chunk(1, chunks[0]))
+        except Exception as e:
+            print(f"⚠️ API Gemini indisponível ({e}); ativando seleção inteligente local por picos de áudio!")
+    else:
+        # Paraleliza análise de blocos em vídeos longos (até 4 chamadas simultâneas)
+        with ThreadPoolExecutor(max_workers=min(total_chunks, 4)) as pool:
+            futs = {pool.submit(_analyze_chunk, idx, ch): idx for idx, ch in enumerate(chunks, 1)}
+            for fut in as_completed(futs):
+                idx = futs[fut]
+                try:
+                    all_clips.extend(fut.result())
+                except Exception as e:
+                    print(f"⚠️ Erro no bloco {idx}/{total_chunks}: {e}")
 
     final_clips = _deduplicate_and_validate_clips(all_clips, video_end=video_end)
 
     if not final_clips:
-        raise RuntimeError("A IA não conseguiu extrair cortes válidos deste vídeo.")
+        print("⚡ Aplicando fallback local por picos sonoros e pausas de fala para manter o pipeline ativo...")
+        final_clips = _local_smart_fallback_clips(transcript_segments, target_clips, audio_spikes)
+
+    if not final_clips:
+        raise RuntimeError("Não foi possível extrair cortes válidos deste vídeo.")
 
     # Se não estiver em modo máximo, limita à quantidade exata solicitada
     if not max_mode and len(final_clips) > target_clips:

@@ -36,6 +36,8 @@ def transcribe_audio(audio_path: str, model_size: str = None) -> list:
         audio_path,
         language="pt",
         beam_size=1,
+        best_of=1,
+        condition_on_previous_text=False,
         vad_filter=True,
         word_timestamps=True
     )

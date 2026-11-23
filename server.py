@@ -48,7 +48,7 @@ from viral_analyzer import find_viral_moments
 from subtitles_generator import generate_tiktok_ass_subtitles
 from video_editor import create_vertical_clip, generate_clip_thumbnail
 from auto_publisher import (
-    publish_clip_to_tiktok, open_tiktok_login_window, is_tiktok_browser_logged_in
+    publish_clip_to_tiktok, publish_clips_batch, open_tiktok_login_window, is_tiktok_browser_logged_in
 )
 from tiktok_auth import (
     get_tiktok_session, save_tiktok_session, save_tiktok_credentials,
@@ -165,38 +165,46 @@ def run_job_pipeline(job_id: str, req: JobRequest):
     job = JOBS[job_id]
     try:
         log_event(f"🚀 Iniciando processamento do job #{job_id} para URL: {req.url}")
+        t_job_start = time.monotonic()
         job["status"] = "downloading"
         job["progress"] = 15
-        job["message"] = "1/4 📥 Baixando vídeo e áudio do YouTube..."
-        log_event("📥 Baixando vídeo do YouTube em até 1080p...")
+        job["message"] = "1/4 📥 Baixando vídeo em 720p H.264..."
+        log_event("📥 Baixando vídeo do YouTube em 720p H.264 (SSD local)...")
         media = download_youtube_video(req.url)
         job["video_id"] = media["id"]
         job["title"] = media["title"]
-        log_event(f"🎬 Vídeo baixado: '{media['title']}' (ID: {media['id']})")
+        log_event(f"🎬 Vídeo 720p pronto: '{media['title']}' (ID: {media['id']})")
 
         job["status"] = "analyzing_audio"
         job["progress"] = 30
-        job["message"] = "2/4 ⚡ Analisando áudio e transcrevendo em paralelo..."
-        log_event("⚡ Iniciando análise de áudio e transcrição em paralelo...")
 
-        # ── OTIMIZAÇÃO: audio_spike e transcription rodam ao mesmo tempo ──
+        yt_transcript = media.get("youtube_transcript") or []
         spikes_result = [None]
-        transcript_result = [None]
+        transcript_result = [yt_transcript if yt_transcript else None]
 
-        def _analyze():
+        if yt_transcript:
+            job["message"] = "2/4 ⚡ Transcrição instantânea obtida do YouTube! Mapeando picos de áudio..."
+            log_event(f"⚡ Transcrição instantânea via YouTube ({len(yt_transcript)} segmentos) — Whisper dispensado!")
             spikes_result[0] = detect_audio_spikes(media["audio_path"], top_n=60)
             log_event(f"⚡ Picos de som detectados: {len(spikes_result[0])} momentos-chave ao longo do vídeo.")
+        else:
+            job["message"] = "2/4 ⚡ Analisando áudio e transcrevendo com Whisper em paralelo..."
+            log_event("⚡ Vídeo sem legenda nativa no YouTube; iniciando análise de áudio e Faster-Whisper em paralelo...")
 
-        def _transcribe():
-            transcript_result[0] = transcribe_audio(media["audio_path"])
-            log_event(f"✅ Transcrição concluída: {len(transcript_result[0])} segmentos mapeados.")
+            def _analyze():
+                spikes_result[0] = detect_audio_spikes(media["audio_path"], top_n=60)
+                log_event(f"⚡ Picos de som detectados: {len(spikes_result[0])} momentos-chave ao longo do vídeo.")
 
-        t_analyze = threading.Thread(target=_analyze)
-        t_transcribe = threading.Thread(target=_transcribe)
-        t_analyze.start()
-        t_transcribe.start()
-        t_analyze.join()
-        t_transcribe.join()
+            def _transcribe():
+                transcript_result[0] = transcribe_audio(media["audio_path"])
+                log_event(f"✅ Transcrição concluída: {len(transcript_result[0])} segmentos mapeados.")
+
+            t_analyze = threading.Thread(target=_analyze)
+            t_transcribe = threading.Thread(target=_transcribe)
+            t_analyze.start()
+            t_transcribe.start()
+            t_analyze.join()
+            t_transcribe.join()
 
         spikes = spikes_result[0]
         transcript = transcript_result[0]
@@ -279,7 +287,7 @@ def run_job_pipeline(job_id: str, req: JobRequest):
         results_map = {}
         done_render = 0
         total_render = max(len(viral_clips), 1)
-        max_workers = min(len(viral_clips), 3)  # máx 3 ffmpeg simultâneos para não saturar CPU
+        max_workers = min(len(viral_clips), 4)  # 720p30 + QSV permite até 4 renders paralelos leves
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {executor.submit(render_clip, idx, clip): idx for idx, clip in enumerate(viral_clips, 1)}
             for future in as_completed(futures):
@@ -287,25 +295,39 @@ def run_job_pipeline(job_id: str, req: JobRequest):
                 results_map[idx] = future.result()
                 done_render += 1
                 job["progress"] = 72 + int((done_render / total_render) * 18)
-                job["message"] = f"4/4 ✂️ Renderizando cortes ({done_render}/{total_render} prontos)..."
+                job["message"] = f"4/4 ✂️ Renderizando cortes 720p ({done_render}/{total_render} prontos)..."
 
         results = [results_map[i] for i in sorted(results_map.keys())]
 
-        # ── PUBLICAÇÃO SEQUENCIAL NO TIKTOK (1 por vez para evitar lock no perfil do Chrome) ──
+        # ── PUBLICAÇÃO EM LOTE NO TIKTOK (1 única sessão do Chrome para todos os cortes!) ──
         published_count = 0
         if req.auto_post:
             job["status"] = "publishing"
             job["progress"] = 90
-            for i, item in enumerate(results, 1):
+            job["message"] = f"📲 Postando {len(results)} corte(s) em lote no TikTok..."
+            log_event(f"📲 Iniciando publicação em lote de {len(results)} corte(s) na mesma sessão do Chrome...")
+
+            batch_specs = [
+                {
+                    "video_path": str(video_output_dir / item["filename"]),
+                    "title": item["title"],
+                    "hashtags": item["hashtags"],
+                }
+                for item in results
+            ]
+
+            def _on_pub_progress(i: int, total: int, st: dict):
+                job["progress"] = 90 + int((i / max(total, 1)) * 9)
+                job["message"] = f"📲 Publicados {i}/{total} cortes no TikTok..."
+
+            batch_statuses = publish_clips_batch(
+                batch_specs,
+                delete_after_post=req.delete_after,
+                on_progress=_on_pub_progress,
+            )
+
+            for i, (item, post_status) in enumerate(zip(results, batch_statuses), 1):
                 v_out = video_output_dir / item["filename"]
-                job["message"] = f"📲 Postando Corte #{i}/{len(results)} no TikTok..."
-                log_event(f"📲 Postando Corte #{i}/{len(results)} no TikTok...")
-                post_status = publish_clip_to_tiktok(
-                    video_path=str(v_out),
-                    title=item["title"],
-                    hashtags=item["hashtags"],
-                    delete_after_post=req.delete_after
-                )
                 item["auto_post_status"] = post_status
                 item["file_exists"] = v_out.exists()
                 if post_status.get("success") and post_status.get("status") == "published":
@@ -313,10 +335,15 @@ def run_job_pipeline(job_id: str, req: JobRequest):
                     log_event(f"✅ Corte #{i} publicado com sucesso no TikTok!")
                 else:
                     log_event(f"⚠️ Corte #{i} não foi publicado ({post_status.get('error', 'erro desconhecido')}). Mantido para download.")
-                job["progress"] = 90 + int((i / max(len(results), 1)) * 9)
 
-            # Só limpa os temporários de origem se delete_after estiver ativo e todos os cortes tiverem sido postados
+            # Limpa arquivos de origem temporários se delete_after estiver ativo e todos os cortes tiverem sido postados
             if req.delete_after and published_count == len(results):
+                for src_p in (media.get("video_path"), media.get("audio_path")):
+                    if src_p:
+                        try:
+                            Path(src_p).unlink(missing_ok=True)
+                        except Exception:
+                            pass
                 for temp_f in TEMP_DIR.glob(f"{media['id']}.*"):
                     try:
                         temp_f.unlink(missing_ok=True)
@@ -326,19 +353,20 @@ def run_job_pipeline(job_id: str, req: JobRequest):
         with open(video_output_dir / "postagens.json", "w", encoding="utf-8") as f:
             json.dump(results, f, ensure_ascii=False, indent=2)
 
+        elapsed_total = round(time.monotonic() - t_job_start, 1)
         job["status"] = "completed"
         job["progress"] = 100
         if req.auto_post:
             if published_count == len(results):
-                job["message"] = f"Concluído! Todos os {published_count} cortes foram postados no TikTok!"
+                job["message"] = f"Concluído em {elapsed_total}s! Todos os {published_count} cortes 720p foram postados no TikTok!"
             elif published_count > 0:
-                job["message"] = f"Concluído! {published_count}/{len(results)} postados; os demais estão disponíveis para baixar."
+                job["message"] = f"Concluído em {elapsed_total}s! {published_count}/{len(results)} postados; os demais estão disponíveis para baixar."
             else:
-                job["message"] = "Cortes prontos para download! (Não foi possível postar automaticamente no TikTok — veja o motivo abaixo.)"
+                job["message"] = f"Cortes 720p prontos em {elapsed_total}s! (Não foi possível postar automaticamente — disponíveis para download.)"
         else:
-            job["message"] = "Processamento concluído! Cortes prontos para assistir e baixar."
+            job["message"] = f"Processamento concluído em {elapsed_total}s! Cortes 720p prontos para assistir e baixar."
         job["results"] = results
-        log_event(f"🎉 Job #{job_id} concluído! Publicados: {published_count}/{len(results)} | Pasta: {video_output_dir.name}")
+        log_event(f"🎉 Job #{job_id} concluído em {elapsed_total}s! Publicados: {published_count}/{len(results)} | Pasta: {video_output_dir.name}")
 
     except Exception as e:
         err_msg = f"Erro no processamento: {redact_sensitive(str(e))}"
