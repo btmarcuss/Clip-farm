@@ -1078,6 +1078,15 @@
       }
     }
 
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
     function renderClips(results) {
       const feed = document.getElementById('clipsFeed');
       if (!results || results.length === 0) return;
@@ -1096,14 +1105,21 @@
         } else if (isFailed) {
           badge = '<span class="status-badge" style="background:rgba(239,68,68,0.18); color:#f87171; border:1px solid rgba(239,68,68,0.4);">⚠️ Não Postado</span>';
           if (st.error) {
-            errorBox = `<div style="font-size:0.78rem; color:#fca5a5; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); border-radius:8px; padding:8px; margin-top:6px;">${st.error}</div>`;
+            errorBox = `<div style="font-size:0.78rem; color:#fca5a5; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); border-radius:8px; padding:8px; margin-top:6px;">${escapeHtml(st.error)}</div>`;
           }
         }
 
+        const safeVideoUrl = escapeHtml(c.video_url || '');
+        const safeThumbUrl = escapeHtml(c.thumb_url || '');
+        const safeTitle = escapeHtml(c.title || '');
+        const safeHashtags = escapeHtml((c.hashtags || []).join(' '));
+        const safeDuration = escapeHtml(c.duration || 0);
+        const safeFilename = escapeHtml(c.filename || 'corte_tiktok.mp4');
+
         const videoBlock = fileExists
           ? `<div class="video-wrap">
-               <video controls playsinline preload="metadata" poster="${c.thumb_url}">
-                 <source src="${c.video_url}" type="video/mp4" />
+               <video controls playsinline preload="metadata" poster="${safeThumbUrl}">
+                 <source src="${safeVideoUrl}" type="video/mp4" />
                </video>
              </div>`
           : `<div class="video-wrap" style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; text-align:center; background:#0b0d11; min-height:200px;">
@@ -1113,7 +1129,7 @@
              </div>`;
 
         const downloadBtn = fileExists
-          ? `<a href="${c.video_url}?download=1" download="${c.filename || 'corte_tiktok.mp4'}" class="action-btn dl-btn">
+          ? `<a href="${safeVideoUrl}?download=1" download="${safeFilename}" class="action-btn dl-btn">
                ⬇️ Baixar MP4
              </a>`
           : '';
@@ -1121,7 +1137,7 @@
         const vidId = c.video_id || (c.video_url ? c.video_url.split('/')[3] : '');
         const fname = c.filename || (c.video_url ? c.video_url.split('/')[4] : '');
         const postBtn = (fileExists && !isPublished && vidId && fname)
-          ? `<button class="action-btn" id="postBtn_${idx}" style="background:rgba(255,0,80,0.18); color:#ff4d79; border:1px solid rgba(255,0,80,0.4);" onclick='publishClipNow(${idx}, ${JSON.stringify(vidId)}, ${JSON.stringify(fname)}, ${JSON.stringify(c.title)}, ${JSON.stringify(c.hashtags || [])})'>
+          ? `<button class="action-btn" id="postBtn_${idx}" style="background:rgba(255,0,80,0.18); color:#ff4d79; border:1px solid rgba(255,0,80,0.4);" onclick='publishClipNow(${idx}, ${JSON.stringify(vidId)}, ${JSON.stringify(fname)}, ${JSON.stringify(c.title || '')}, ${JSON.stringify(c.hashtags || [])})'>
                📲 Postar no TikTok
              </button>`
           : '';
@@ -1132,11 +1148,11 @@
           ${videoBlock}
           <div class="clip-meta">
             <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
-              <span class="hook-tag">🎯 Gancho (${c.duration}s)</span>
+              <span class="hook-tag">🎯 Gancho (${safeDuration}s)</span>
               ${badge}
             </div>
-            <div class="clip-heading">${c.title}</div>
-            <div class="clip-hashtags">${(c.hashtags || []).join(' ')}</div>
+            <div class="clip-heading">${safeTitle}</div>
+            <div class="clip-hashtags">${safeHashtags}</div>
             ${errorBox}
             <div class="btn-group" style="flex-wrap:wrap;">
               <button class="action-btn copy-btn" onclick="copyMeta('${escapeJs(c.title)}', '${escapeJs((c.hashtags || []).join(' '))}')">

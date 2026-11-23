@@ -1,46 +1,45 @@
-import json
 import os
-import requests
+import secrets
 import hashlib
+import requests
 from pathlib import Path
 from config import BASE_DIR
+from security import load_encrypted_json, save_encrypted_json
 
 SESSION_FILE = BASE_DIR / "storage" / ".tiktok_session.json"
 
+
+def _hash_secret(secret: str) -> str:
+    """Hash seguro com PBKDF2-HMAC-SHA256 e salt aleatório (evita rainbow tables)."""
+    salt = secrets.token_hex(16)
+    dk = hashlib.pbkdf2_hmac("sha256", secret.encode("utf-8"), salt.encode("utf-8"), 100_000)
+    return f"pbkdf2_sha256${salt}${dk.hex()}"
+
+
 def get_tiktok_session() -> dict:
-    """Carrega as credenciais salvas do TikTok (google, telefone, usuário/senha, sessionid ou api_token)."""
-    if SESSION_FILE.exists():
-        try:
-            with open(SESSION_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return {}
-    return {}
+    """Carrega e descriptografa as credenciais salvas do TikTok."""
+    return load_encrypted_json(SESSION_FILE)
+
 
 def save_tiktok_credentials(username: str, password: str) -> dict:
-    """Salva login por usuário/e-mail e senha."""
-    SESSION_FILE.parent.mkdir(parents=True, exist_ok=True)
+    """Salva login por usuário/e-mail de forma criptografada (sem senha em texto puro)."""
     current = get_tiktok_session()
-    
+
     clean_user = username.strip().replace("@", "")
     current["username"] = clean_user
-    current["password_hash"] = hashlib.sha256(password.encode()).hexdigest()
+    current["password_hash"] = _hash_secret(password)
     current["auth_type"] = "usuario_senha"
     current["status"] = "active"
     current["login_identifier"] = clean_user
 
-    with open(SESSION_FILE, "w", encoding="utf-8") as f:
-        json.dump(current, f, indent=2)
-
+    save_encrypted_json(SESSION_FILE, current)
     return current
 
+
 def save_tiktok_phone_login(phone: str, password: str = "", sms_code: str = "") -> dict:
-    """
-    Salva login por Número de Telefone e Senha ou Código SMS.
-    """
-    SESSION_FILE.parent.mkdir(parents=True, exist_ok=True)
+    """Salva login por Número de Telefone de forma criptografada (não persiste código SMS/OTP)."""
     current = get_tiktok_session()
-    
+
     clean_phone = phone.strip().replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
     current["phone"] = clean_phone
     current["username"] = f"tel_{clean_phone[-4:]}"
@@ -48,22 +47,17 @@ def save_tiktok_phone_login(phone: str, password: str = "", sms_code: str = "") 
     current["status"] = "active"
     current["login_identifier"] = clean_phone
     if password:
-        current["password_hash"] = hashlib.sha256(password.encode()).hexdigest()
-    if sms_code:
-        current["last_sms_code"] = sms_code.strip()
+        current["password_hash"] = _hash_secret(password)
+    # Por segurança, códigos SMS (OTP) nunca são gravados em disco
 
-    with open(SESSION_FILE, "w", encoding="utf-8") as f:
-        json.dump(current, f, indent=2)
-
+    save_encrypted_json(SESSION_FILE, current)
     return current
 
+
 def save_tiktok_google_login(google_email: str, auth_token: str = "") -> dict:
-    """
-    Conecta a conta TikTok vinculada à Conta Google.
-    """
-    SESSION_FILE.parent.mkdir(parents=True, exist_ok=True)
+    """Conecta a conta TikTok vinculada à Conta Google com armazenamento criptografado."""
     current = get_tiktok_session()
-    
+
     clean_email = google_email.strip()
     current["google_email"] = clean_email
     current["username"] = clean_email.split("@")[0]
@@ -73,16 +67,14 @@ def save_tiktok_google_login(google_email: str, auth_token: str = "") -> dict:
     if auth_token:
         current["google_auth_token"] = auth_token
 
-    with open(SESSION_FILE, "w", encoding="utf-8") as f:
-        json.dump(current, f, indent=2)
-
+    save_encrypted_json(SESSION_FILE, current)
     return current
 
+
 def save_tiktok_session(session_id: str = None, access_token: str = None, username: str = None) -> dict:
-    """Salva a sessão do TikTok de forma segura no arquivo local."""
-    SESSION_FILE.parent.mkdir(parents=True, exist_ok=True)
+    """Salva a sessão do TikTok criptografada com Fernet (AES + HMAC)."""
     current = get_tiktok_session()
-    
+
     if session_id is not None:
         current["session_id"] = session_id.strip()
         current["auth_type"] = "session_id"
@@ -92,10 +84,9 @@ def save_tiktok_session(session_id: str = None, access_token: str = None, userna
     if username is not None:
         current["username"] = username.strip().replace("@", "")
 
-    with open(SESSION_FILE, "w", encoding="utf-8") as f:
-        json.dump(current, f, indent=2)
-        
+    save_encrypted_json(SESSION_FILE, current)
     return current
+
 
 def remove_tiktok_session():
     """Remove a sessão salva (desconectar)."""
@@ -104,6 +95,7 @@ def remove_tiktok_session():
             SESSION_FILE.unlink()
         except Exception:
             pass
+
 
 def verify_tiktok_sessionid(session_id: str) -> dict:
     """Valida o session_id fornecido."""

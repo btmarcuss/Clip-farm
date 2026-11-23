@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Dict, Any, List
 from collections import deque
 
-from fastapi import FastAPI, BackgroundTasks, HTTPException
+from fastapi import FastAPI, BackgroundTasks, HTTPException, Request
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,6 +30,11 @@ from config import (
     OUTPUT_DIR, TEMP_DIR, MAX_CLIPS, DEFAULT_LAYOUT, ENABLE_SUBTITLES, AUTO_POST,
     BASE_DIR, GEMINI_API_KEY, TIKTOK_ACCESS_TOKEN, TIKTOK_PRIVACY_LEVEL, WHISPER_MODEL,
     SERVER_HOST, SERVER_PORT
+)
+from security import (
+    redact_sensitive, safe_media_path, validate_youtube_url, sanitize_env_value,
+    validate_layout, validate_privacy, validate_whisper_model,
+    is_private_or_local_ip, is_allowed_origin, RateLimiter, SECURITY_HEADERS
 )
 from downloader import download_youtube_video
 from audio_analyzer import detect_audio_spikes
@@ -46,25 +51,93 @@ from tiktok_auth import (
     remove_tiktok_session, verify_tiktok_sessionid
 )
 
-app = FastAPI(title="Clip Farm Studio Pro", version="2.3.0")
+# Desabilita Swagger/OpenAPI público para não expor mapa de rotas na rede
+app = FastAPI(
+    title="Clip Farm Studio Pro",
+    version="2.4.0",
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+)
+
+
+def _detect_local_ip_boot() -> str:
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))
+        return s.getsockname()[0]
+    except Exception:
+        return "127.0.0.1"
+    finally:
+        s.close()
+
+
+_BOOT_IP = _detect_local_ip_boot()
+ALLOWED_ORIGINS = {
+    f"http://localhost:{SERVER_PORT}",
+    f"http://127.0.0.1:{SERVER_PORT}",
+    f"http://{_BOOT_IP}:{SERVER_PORT}",
+}
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=list(ALLOWED_ORIGINS),
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
+
+_RATE_LIMITER = RateLimiter()
 
 # Buffer de Logs em memória (armazena os últimos 200 eventos do terminal)
 MAX_LOGS = 200
 SYSTEM_LOGS = deque(maxlen=MAX_LOGS)
 
+
 def log_event(message: str):
     timestamp = time.strftime("%H:%M:%S")
-    entry = f"[{timestamp}] {message}"
+    # DLP: mascara automaticamente chaves, tokens, e-mails e telefones antes de registrar
+    safe_msg = redact_sensitive(message)
+    entry = f"[{timestamp}] {safe_msg}"
     SYSTEM_LOGS.append(entry)
     print(entry)
+
+
+@app.middleware("http")
+async def security_middleware(request: Request, call_next):
+    client_ip = request.client.host if request.client else "unknown"
+
+    # 1. Bloqueio de acessos vindos de fora da rede local (Anti-Invasão Externa)
+    if not is_private_or_local_ip(client_ip):
+        log_event(f"🛡️ [BLOQUEADO] Tentativa de acesso de IP externo: {client_ip}")
+        return JSONResponse(status_code=403, content={"detail": "Acesso permitido apenas na rede local."})
+
+    # 2. Proteção Anti-CSRF em rotas mutantes (POST/PUT/DELETE)
+    if request.method in ("POST", "PUT", "DELETE", "PATCH"):
+        origin = request.headers.get("origin") or request.headers.get("referer") or ""
+        if origin and not is_allowed_origin(origin, ALLOWED_ORIGINS):
+            log_event(f"🛡️ [CSRF BLOQUEADO] Origem não autorizada ({origin}) de {client_ip}")
+            return JSONResponse(status_code=403, content={"detail": "Origem da requisição não autorizada."})
+
+    # 3. Rate Limiting por IP (Anti-Flood / Anti-Brute-Force)
+    path = request.url.path
+    is_sensitive = path.startswith(("/api/tiktok/", "/api/config", "/api/shutdown", "/api/jobs", "/api/clips/"))
+    if is_sensitive and request.method == "POST":
+        if not _RATE_LIMITER.allow(f"strict:{client_ip}", max_requests=20, window_seconds=60):
+            log_event(f"🛡️ [RATE LIMIT] Excesso de requisições sensíveis de {client_ip} em {path}")
+            return JSONResponse(status_code=429, content={"detail": "Muitas requisições. Aguarde um minuto."})
+    else:
+        if not _RATE_LIMITER.allow(f"gen:{client_ip}", max_requests=180, window_seconds=60):
+            return JSONResponse(status_code=429, content={"detail": "Limite de requisições excedido."})
+
+    response = await call_next(request)
+
+    # 4. Cabeçalhos HTTP de Hardening (Anti-XSS, Anti-Clickjacking, Anti-MIME Sniffing)
+    for k, v in SECURITY_HEADERS.items():
+        if k == "Cache-Control" and path.startswith("/api/media/"):
+            continue
+        response.headers[k] = v
+    return response
 
 JOBS: Dict[str, Dict[str, Any]] = {}
 
@@ -253,7 +326,7 @@ def run_job_pipeline(job_id: str, req: JobRequest):
         log_event(f"🎉 Job #{job_id} concluído! Publicados: {published_count}/{len(results)} | Pasta: {video_output_dir.name}")
 
     except Exception as e:
-        err_msg = f"Erro no processamento: {str(e)}"
+        err_msg = f"Erro no processamento: {redact_sensitive(str(e))}"
         job["status"] = "failed"
         job["progress"] = 0
         job["message"] = err_msg
@@ -261,6 +334,15 @@ def run_job_pipeline(job_id: str, req: JobRequest):
 
 @app.post("/api/jobs")
 def create_job(req: JobRequest, background_tasks: BackgroundTasks):
+    try:
+        req.url = validate_youtube_url(req.url)
+    except ValueError as e:
+        log_event(f"🛡️ [URL BLOQUEADA] {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+    req.clips = max(1, min(int(req.clips), 10))
+    req.layout = validate_layout(req.layout)
+
     job_id = str(uuid.uuid4())[:8]
     JOBS[job_id] = {
         "id": job_id,
@@ -494,7 +576,12 @@ class PublishClipRequest(BaseModel):
 @app.post("/api/clips/publish")
 def publish_single_clip(req: PublishClipRequest):
     """Permite postar (ou tentar repostar) um clipe já salvo no disco diretamente pelo painel."""
-    v_path = OUTPUT_DIR / req.video_id / req.filename
+    try:
+        v_path = safe_media_path(OUTPUT_DIR, req.video_id, req.filename)
+    except ValueError as e:
+        log_event(f"🛡️ [PATH TRAVERSAL BLOQUEADO] {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
     if not v_path.exists():
         raise HTTPException(status_code=404, detail="Arquivo de vídeo não encontrado no disco.")
 
@@ -539,18 +626,21 @@ def get_app_config():
 
 @app.post("/api/config")
 def save_app_config(cfg: ConfigUpdate):
+    try:
+        updated = {
+            "GEMINI_API_KEY": sanitize_env_value(cfg.gemini_key),
+            "TIKTOK_ACCESS_TOKEN": sanitize_env_value(cfg.tiktok_token),
+            "TIKTOK_PRIVACY_LEVEL": validate_privacy(cfg.privacy),
+            "WHISPER_MODEL": validate_whisper_model(cfg.whisper_model)
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
     env_file = BASE_DIR / ".env"
     lines = []
     if env_file.exists():
         with open(env_file, "r", encoding="utf-8") as f:
             lines = f.readlines()
-
-    updated = {
-        "GEMINI_API_KEY": cfg.gemini_key,
-        "TIKTOK_ACCESS_TOKEN": cfg.tiktok_token,
-        "TIKTOK_PRIVACY_LEVEL": cfg.privacy,
-        "WHISPER_MODEL": cfg.whisper_model
-    }
 
     new_lines = []
     existing_keys = set()
@@ -578,16 +668,22 @@ def save_app_config(cfg: ConfigUpdate):
 
 @app.get("/api/media/{video_id}/{filename}")
 def serve_media(video_id: str, filename: str, download: int = 0):
-    file_path = OUTPUT_DIR / video_id / filename
+    try:
+        file_path = safe_media_path(OUTPUT_DIR, video_id, filename)
+    except ValueError as e:
+        log_event(f"🛡️ [PATH TRAVERSAL BLOQUEADO] {e}")
+        raise HTTPException(status_code=400, detail="Acesso negado.")
+
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="Arquivo não encontrado")
     media_type = "video/mp4" if filename.endswith(".mp4") else "image/jpeg"
     if download:
+        safe_dl_name = f"{video_id}_{filename}"
         return FileResponse(
             file_path,
             media_type=media_type,
-            filename=f"{video_id}_{filename}",
-            headers={"Content-Disposition": f'attachment; filename="{video_id}_{filename}"'}
+            filename=safe_dl_name,
+            headers={"Content-Disposition": f'attachment; filename="{safe_dl_name}"'}
         )
     return FileResponse(file_path, media_type=media_type)
 
