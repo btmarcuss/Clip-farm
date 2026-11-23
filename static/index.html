@@ -2,47 +2,81 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Clip Farm Studio Pro</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clip Farm Studio — Editor Automatizado de Cortes Verticais</title>
   <link rel="manifest" href="/manifest.json" />
-  <meta name="theme-color" content="#ff0050" />
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <meta name="theme-color" content="#c8003f" />
   <style>
     :root {
       --bg: #0b0d11;
       --surface: #141820;
-      --surface-border: #222734;
-      --primary: #ff0050;
-      --primary-hover: #e00045;
-      --secondary: #00f2fe;
+      --surface-border: #2c3446;
+      --primary: #d90044;
+      --primary-hover: #b8003a;
+      --secondary: #38bdf8;
       --text: #f8fafc;
-      --text-muted: #94a3b8;
+      --text-muted: #cbd5e1;
       --success: #22c55e;
-      --danger: #ef4444;
+      --danger: #f87171;
+      --danger-bg: #7f1d1d;
       --card-bg: #181d28;
+      --focus-ring: #38bdf8;
     }
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-      -webkit-tap-highlight-color: transparent;
     }
     body {
       background-color: var(--bg);
       color: var(--text);
-      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
+      line-height: 1.5;
+    }
+    /* Skip link para acessibilidade por teclado (WCAG 2.4.1) */
+    .skip-link {
+      position: absolute;
+      top: -100px;
+      left: 16px;
+      background: #ffffff;
+      color: #0b0d11;
+      padding: 12px 18px;
+      border-radius: 8px;
+      font-weight: 800;
+      z-index: 2000;
+      text-decoration: none;
+    }
+    .skip-link:focus {
+      top: 16px;
+      outline: 3px solid var(--focus-ring);
+    }
+    /* Foco visível de alto contraste em todos os elementos interativos (WCAG 2.4.7) */
+    :focus-visible {
+      outline: 3px solid var(--focus-ring) !important;
+      outline-offset: 2px !important;
+    }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
     header {
-      background: rgba(20, 24, 32, 0.95);
-      backdrop-filter: blur(14px);
+      background: rgba(20, 24, 32, 0.98);
       padding: 12px 24px;
       display: flex;
       align-items: center;
       justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
       border-bottom: 1px solid var(--surface-border);
       position: sticky;
       top: 0;
@@ -51,22 +85,23 @@
     .brand {
       display: flex;
       align-items: center;
-      gap: 12px;
-      font-size: 1.2rem;
+      gap: 10px;
+      font-size: 1.15rem;
       font-weight: 800;
+      color: #ffffff;
     }
-    .brand span {
-      background: linear-gradient(135deg, var(--primary), var(--secondary));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+    .brand-accent {
+      color: #ff4d79;
     }
     .header-actions {
       display: flex;
       align-items: center;
-      gap: 12px;
+      flex-wrap: wrap;
+      gap: 10px;
     }
     .nav-tabs {
       display: flex;
+      flex-wrap: wrap;
       gap: 6px;
       background: #0b0d11;
       padding: 4px;
@@ -77,122 +112,135 @@
       background: transparent;
       border: none;
       color: var(--text-muted);
-      padding: 8px 14px;
+      padding: 10px 14px;
+      min-height: 44px;
       border-radius: 8px;
-      font-size: 0.85rem;
-      font-weight: 600;
+      font-size: 0.875rem;
+      font-weight: 700;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: background 0.2s, color 0.2s;
+    }
+    .tab-btn:hover {
+      background: #1e2534;
+      color: #ffffff;
     }
     .tab-btn.active {
-      background: var(--surface);
-      color: #fff;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+      background: var(--primary);
+      color: #ffffff;
     }
     .btn-shutdown {
-      background: rgba(239, 68, 68, 0.15);
-      color: var(--danger);
-      border: 1px solid rgba(239, 68, 68, 0.3);
-      padding: 8px 14px;
+      background: var(--danger-bg);
+      color: #ffffff;
+      border: 1px solid #ef4444;
+      padding: 10px 14px;
+      min-height: 44px;
       border-radius: 10px;
-      font-size: 0.8rem;
+      font-size: 0.85rem;
       font-weight: 700;
       cursor: pointer;
-      display: flex;
+      display: inline-flex;
       align-items: center;
       gap: 6px;
-      transition: background 0.2s;
     }
+    .btn-shutdown:hover { background: #991b1b; }
     .btn-mobile-link {
-      background: rgba(0, 242, 254, 0.12);
-      color: var(--secondary);
-      border: 1px solid rgba(0, 242, 254, 0.3);
-      padding: 8px 14px;
+      background: #0c4a6e;
+      color: #ffffff;
+      border: 1px solid var(--secondary);
+      padding: 10px 14px;
+      min-height: 44px;
       border-radius: 10px;
-      font-size: 0.8rem;
+      font-size: 0.85rem;
       font-weight: 700;
       cursor: pointer;
-      display: flex;
+      display: inline-flex;
       align-items: center;
       gap: 6px;
-      transition: background 0.2s;
     }
     .btn-mobile-link:hover {
-      background: var(--secondary);
-      color: #000;
+      background: #0369a1;
     }
 
-    /* Modal Mobile QR Code */
+    /* Modais Acessíveis */
     .modal-overlay {
       position: fixed;
-      top: 0; left: 0; width: 100vw; height: 100vh;
-      background: rgba(0,0,0,0.75);
-      backdrop-filter: blur(8px);
+      inset: 0;
+      background: rgba(0, 0, 0, 0.82);
       display: none;
       align-items: center;
       justify-content: center;
       z-index: 1000;
+      padding: 16px;
     }
     .modal-card {
       background: var(--surface);
       border: 1px solid var(--surface-border);
-      border-radius: 20px;
-      padding: 26px;
-      max-width: 420px;
-      width: 90%;
+      border-radius: 18px;
+      padding: 24px;
+      max-width: 520px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
       text-align: center;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
       position: relative;
     }
     .modal-close {
       position: absolute;
-      top: 14px;
-      right: 16px;
-      background: none;
-      border: none;
-      color: var(--text-muted);
+      top: 12px;
+      right: 12px;
+      background: #232b3b;
+      border: 1px solid var(--surface-border);
+      color: #ffffff;
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
       font-size: 1.3rem;
       cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     .qr-container {
-      background: white;
+      background: #ffffff;
       padding: 12px;
       border-radius: 14px;
       display: inline-block;
       margin: 16px 0;
     }
     .qr-container img {
-      width: 170px;
-      height: 170px;
+      width: 180px;
+      height: 180px;
       display: block;
     }
     .mobile-url-box {
       background: #0b0d11;
-      border: 1px solid #282f40;
+      border: 1px solid #334155;
       padding: 12px 14px;
       border-radius: 10px;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: 'Cascadia Mono', Consolas, 'Courier New', monospace;
       font-size: 0.9rem;
-      color: var(--secondary);
+      color: #7dd3fc;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 8px;
       margin-top: 10px;
+      word-break: break-all;
     }
 
-    .app-layout {
+    main.app-layout {
       max-width: 1400px;
       width: 100%;
       margin: 0 auto;
       padding: 24px;
       display: grid;
-      grid-template-columns: 460px 1fr;
+      grid-template-columns: 480px 1fr;
       gap: 24px;
       flex: 1;
     }
-
-    @media (max-width: 960px) {
-      .app-layout {
+    @media (max-width: 980px) {
+      main.app-layout {
         grid-template-columns: 1fr;
         padding: 16px;
         gap: 20px;
@@ -202,26 +250,26 @@
     .panel {
       background: var(--surface);
       border: 1px solid var(--surface-border);
-      border-radius: 20px;
+      border-radius: 18px;
       padding: 22px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
       height: fit-content;
       margin-bottom: 20px;
     }
     .panel-title {
       font-size: 1.15rem;
       font-weight: 800;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
       display: flex;
       align-items: center;
       gap: 8px;
+      color: #ffffff;
     }
     .input-label {
-      font-size: 0.8rem;
+      font-size: 0.85rem;
       font-weight: 700;
-      text-transform: uppercase;
       color: var(--text-muted);
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       display: block;
     }
     .input-row {
@@ -229,147 +277,212 @@
       gap: 8px;
       margin-bottom: 16px;
     }
-    input[type="url"], input[type="text"], input[type="password"] {
+    input[type="url"], input[type="text"], input[type="email"], input[type="password"], input[type="number"], textarea {
       flex: 1;
       background: #0b0d11;
-      border: 1px solid #282f40;
-      color: #fff;
-      padding: 14px 16px;
-      border-radius: 12px;
+      border: 1px solid #475569;
+      color: #ffffff;
+      padding: 12px 14px;
+      min-height: 44px;
+      border-radius: 10px;
       font-size: 0.95rem;
-      outline: none;
-      transition: border-color 0.2s;
+      font-family: inherit;
     }
-    input:focus { border-color: var(--primary); }
+    textarea { width: 100%; min-height: 84px; resize: vertical; }
     .btn-paste {
-      background: #232938;
-      color: #fff;
-      border: none;
+      background: #334155;
+      color: #ffffff;
+      border: 1px solid #475569;
       padding: 0 16px;
-      border-radius: 12px;
-      font-weight: 600;
+      min-height: 44px;
+      border-radius: 10px;
+      font-weight: 700;
       cursor: pointer;
     }
+    .btn-paste:hover { background: #475569; }
     .grid-options {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 12px;
       margin-bottom: 16px;
     }
+    @media (max-width: 520px) {
+      .grid-options { grid-template-columns: 1fr; }
+    }
     .select-box {
       background: #0b0d11;
-      border: 1px solid #282f40;
-      border-radius: 12px;
-      padding: 12px;
+      border: 1px solid #475569;
+      border-radius: 10px;
+      padding: 10px 12px;
     }
     select {
-      background: transparent;
+      background: #0b0d11;
       border: none;
-      color: #fff;
+      color: #ffffff;
       font-size: 0.95rem;
       font-weight: 600;
-      outline: none;
       width: 100%;
+      min-height: 36px;
       cursor: pointer;
     }
 
-    /* TikTok Connection Status Bar */
     .tiktok-status-bar {
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 10px;
       padding: 12px 14px;
       border-radius: 12px;
       background: #0d1017;
-      border: 1px solid #232b3b;
+      border: 1px solid #334155;
       margin-bottom: 16px;
-      font-size: 0.85rem;
+      font-size: 0.875rem;
     }
     .tiktok-status-bar.connected {
-      border-color: rgba(34, 197, 94, 0.4);
-      background: rgba(34, 197, 94, 0.08);
+      border-color: #22c55e;
+      background: rgba(34, 197, 94, 0.12);
     }
 
     .toggles-list {
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      padding: 12px 0;
+      gap: 14px;
+      padding: 14px 0;
       border-top: 1px solid var(--surface-border);
       border-bottom: 1px solid var(--surface-border);
-      margin-bottom: 20px;
+      margin-bottom: 16px;
     }
     .toggle-item {
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 12px;
     }
-    .toggle-info h4 { font-size: 0.9rem; font-weight: 600; }
-    .toggle-info p { font-size: 0.75rem; color: var(--text-muted); }
+    .toggle-info label {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: #ffffff;
+      cursor: pointer;
+      display: block;
+    }
+    .toggle-info p { font-size: 0.82rem; color: var(--text-muted); margin-top: 2px; }
 
     .switch {
       position: relative;
       display: inline-block;
-      width: 46px;
-      height: 24px;
+      width: 50px;
+      height: 28px;
+      flex-shrink: 0;
     }
-    .switch input { opacity: 0; width: 0; height: 0; }
+    .switch input {
+      position: absolute;
+      opacity: 0;
+      width: 50px;
+      height: 28px;
+      cursor: pointer;
+      z-index: 2;
+    }
     .slider {
-      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-      background-color: #2b3345;
-      transition: .3s;
-      border-radius: 24px;
+      position: absolute; cursor: pointer; inset: 0;
+      background-color: #334155;
+      border: 1px solid #64748b;
+      transition: .2s;
+      border-radius: 28px;
     }
     .slider:before {
-      position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px;
-      background-color: white;
-      transition: .3s;
+      position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px;
+      background-color: #ffffff;
+      transition: .2s;
       border-radius: 50%;
     }
-    input:checked + .slider { background-color: var(--primary); }
-    input:checked + .slider:before { transform: translateX(22px); }
+    .switch input:checked + .slider { background-color: var(--primary); border-color: #ff4d79; }
+    .switch input:checked + .slider:before { transform: translateX(22px); }
+    .switch input:focus-visible + .slider { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+
+    /* Declaração de Direitos Autorais */
+    .copyright-box {
+      background: #0e131d;
+      border: 1px solid #3b4963;
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 0.84rem;
+      color: var(--text-muted);
+    }
+    .copyright-box input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      margin-top: 2px;
+      flex-shrink: 0;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+    .copyright-box label { cursor: pointer; color: #e2e8f0; }
 
     .btn-primary {
       width: 100%;
-      background: linear-gradient(135deg, var(--primary), var(--primary-hover));
-      color: white;
+      background: var(--primary);
+      color: #ffffff;
       border: none;
-      padding: 16px;
-      border-radius: 14px;
-      font-size: 1.05rem;
+      padding: 14px 18px;
+      min-height: 48px;
+      border-radius: 12px;
+      font-size: 1rem;
       font-weight: 800;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 10px;
-      box-shadow: 0 4px 20px rgba(255, 0, 80, 0.4);
+      gap: 8px;
     }
-    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .btn-success {
+      background: #16a34a;
+      color: #ffffff;
+    }
+    .btn-success:hover { background: #15803d; }
+
+    .btn-danger-solid {
+      background: #b91c1c;
+      color: #ffffff;
+    }
+    .btn-danger-solid:hover { background: #991b1b; }
+
+    .btn-secondary-solid {
+      background: #1e293b;
+      color: #ffffff;
+      border: 1px solid #475569;
+    }
+    .btn-secondary-solid:hover { background: #334155; }
 
     /* Progress Box */
     .progress-card {
       display: none;
       background: #0f1218;
       border: 1px solid var(--surface-border);
-      border-radius: 16px;
+      border-radius: 14px;
       padding: 16px;
       margin-top: 16px;
     }
-    .prog-header { display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: 700; }
-    .bar-bg { background: #252b38; height: 8px; border-radius: 4px; overflow: hidden; margin: 10px 0; }
+    .prog-header { display: flex; justify-content: space-between; font-size: 0.9rem; font-weight: 700; }
+    .bar-bg { background: #252b38; height: 10px; border-radius: 5px; overflow: hidden; margin: 10px 0; }
     .bar-fill { background: linear-gradient(90deg, var(--primary), var(--secondary)); height: 100%; width: 0%; transition: width 0.4s ease; }
-    .prog-msg { font-size: 0.85rem; color: var(--secondary); font-weight: 600; }
+    .prog-msg { font-size: 0.88rem; color: #7dd3fc; font-weight: 600; }
 
     /* Terminal Embutido */
     .terminal-window {
       background: #080a0e;
-      border: 1px solid #1c2230;
-      border-radius: 14px;
+      border: 1px solid #2c3446;
+      border-radius: 12px;
       padding: 14px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.82rem;
-      color: #38bdf8;
+      font-family: 'Cascadia Mono', Consolas, 'Courier New', monospace;
+      font-size: 0.84rem;
+      color: #7dd3fc;
       max-height: 480px;
       min-height: 280px;
       overflow-y: auto;
@@ -382,105 +495,230 @@
       align-items: center;
       margin-bottom: 10px;
     }
-    .term-dots { display: flex; gap: 6px; }
-    .dot { width: 10px; height: 10px; border-radius: 50%; }
-    .dot.red { background: #ef4444; }
-    .dot.yellow { background: #f59e0b; }
-    .dot.green { background: #10b981; }
-
-    /* Instructions Box */
-    .guide-box {
-      background: #0b0e14;
-      border: 1px dashed #262e3d;
-      border-radius: 12px;
-      padding: 14px;
-      margin-top: 10px;
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      line-height: 1.6;
-    }
-    .guide-box ol { margin-left: 20px; margin-top: 6px; }
 
     /* Grid de Vídeos */
     .results-col { display: flex; flex-direction: column; gap: 20px; }
     .feed-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
-    .clip-card { background: var(--card-bg); border: 1px solid var(--surface-border); border-radius: 18px; overflow: hidden; display: flex; flex-direction: column; }
+    .clip-card { background: var(--card-bg); border: 1px solid var(--surface-border); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; }
     .video-wrap { position: relative; width: 100%; padding-top: 177.77%; background: #000; }
     .video-wrap video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
     .clip-meta { padding: 16px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
-    .hook-tag { font-size: 0.8rem; color: #ffd700; background: rgba(255, 215, 0, 0.1); padding: 6px 10px; border-radius: 8px; font-weight: 700; }
-    .clip-heading { font-size: 0.95rem; font-weight: 700; line-height: 1.4; }
-    .clip-hashtags { font-size: 0.8rem; color: var(--secondary); }
-    .btn-group { display: flex; gap: 8px; margin-top: auto; }
-    .action-btn { flex: 1; padding: 10px; border-radius: 8px; font-size: 0.8rem; font-weight: 700; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; }
-    .copy-btn { background: #262c3c; color: #fff; }
-    .dl-btn { background: var(--success); color: #000; }
+    .hook-tag { font-size: 0.82rem; color: #fde047; background: rgba(250, 204, 21, 0.14); padding: 6px 10px; border-radius: 8px; font-weight: 700; }
+    .clip-heading { font-size: 0.95rem; font-weight: 700; line-height: 1.4; color: #ffffff; }
+    .clip-hashtags { font-size: 0.84rem; color: #7dd3fc; }
+    .btn-group { display: flex; gap: 8px; margin-top: auto; flex-wrap: wrap; }
+    .action-btn {
+      flex: 1;
+      padding: 10px 12px;
+      min-height: 44px;
+      border-radius: 8px;
+      font-size: 0.84rem;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      text-decoration: none;
+    }
+    .copy-btn { background: #334155; color: #ffffff; }
+    .copy-btn:hover { background: #475569; }
+    .dl-btn { background: #22c55e; color: #052e16; }
+    .dl-btn:hover { background: #16a34a; color: #ffffff; }
 
-    .status-badge { display: inline-flex; align-items: center; font-size: 0.7rem; padding: 3px 8px; border-radius: 6px; font-weight: 700; }
-    .status-badge.published { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
-    .status-badge.queue { background: rgba(0, 242, 254, 0.2); color: #00f2fe; }
+    .status-badge { display: inline-flex; align-items: center; font-size: 0.78rem; padding: 4px 10px; border-radius: 6px; font-weight: 700; }
+    .status-badge.published { background: rgba(34, 197, 94, 0.2); color: #86efac; border: 1px solid #22c55e; }
+    .status-badge.queue { background: rgba(56, 189, 248, 0.18); color: #7dd3fc; border: 1px solid #38bdf8; }
 
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
+    /* Seção Jurídica & LGPD */
+    .legal-subnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+    .legal-pill {
+      background: #0b0d11;
+      color: var(--text-muted);
+      border: 1px solid #334155;
+      padding: 8px 12px;
+      min-height: 40px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .legal-pill.active {
+      background: #1d4ed8;
+      color: #ffffff;
+      border-color: #60a5fa;
+    }
+    .legal-doc-box {
+      background: #0b0d11;
+      border: 1px solid #2c3446;
+      border-radius: 12px;
+      padding: 16px;
+      font-size: 0.88rem;
+      color: #e2e8f0;
+      max-height: 360px;
+      overflow-y: auto;
+    }
+    .legal-doc-box h3 { font-size: 1rem; color: #ffffff; margin-bottom: 8px; }
+    .legal-doc-box h4 { font-size: 0.9rem; color: #7dd3fc; margin: 12px 0 4px; }
+    .legal-doc-box p { color: var(--text-muted); margin-bottom: 8px; }
+    .audit-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin: 10px 0 14px;
+    }
+    .audit-chip {
+      background: #0e1726;
+      border: 1px solid #22c55e;
+      color: #bbf7d0;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+
+    /* Rodapé Institucional */
+    footer.site-footer {
+      background: #0f131b;
+      border-top: 1px solid var(--surface-border);
+      padding: 20px 24px;
+      margin-top: auto;
+      font-size: 0.84rem;
+      color: var(--text-muted);
+    }
+    .footer-inner {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+    }
+    .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .footer-link-btn {
+      background: transparent;
+      border: 1px solid #334155;
+      color: #e2e8f0;
+      padding: 8px 12px;
+      min-height: 40px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .footer-link-btn:hover { background: #1e293b; color: #ffffff; }
+
+    /* Banner de Consentimento de Cookies (LGPD) */
+    .cookie-banner {
+      position: fixed;
+      bottom: 16px;
+      left: 16px;
+      right: 16px;
+      max-width: 820px;
+      margin: 0 auto;
+      background: #141820;
+      border: 2px solid var(--secondary);
+      border-radius: 16px;
+      padding: 18px 20px;
+      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.85);
+      z-index: 1100;
+      display: none;
+    }
+    .cookie-banner-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
     #toast {
       position: fixed; bottom: 24px; right: 24px; background: #181d28;
-      border: 1px solid var(--primary); color: #fff; padding: 14px 20px;
-      border-radius: 12px; font-weight: 600; box-shadow: 0 8px 30px rgba(0,0,0,0.5);
-      display: none; z-index: 999;
+      border: 2px solid var(--secondary); color: #ffffff; padding: 14px 20px;
+      border-radius: 12px; font-weight: 700; box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+      display: none; z-index: 1200; max-width: 380px;
     }
   </style>
 </head>
 <body>
-  <header>
+  <a href="#mainContent" class="skip-link">Pular para o conteúdo principal</a>
+
+  <header role="banner">
     <div class="brand">
-      🎬 <span>Clip Farm Studio Pro</span>
+      <span aria-hidden="true">🎬</span>
+      <span>Clip Farm <span class="brand-accent">Studio</span></span>
     </div>
 
     <div class="header-actions">
-      <button class="btn-mobile-link" onclick="openMobileModal()">
-        📱 Abrir no Celular
+      <button type="button" class="btn-mobile-link" onclick="openMobileModal()" aria-label="Abrir QR Code e link de acesso pelo celular">
+        <span aria-hidden="true">📱</span> Abrir no Celular
       </button>
 
-      <nav class="nav-tabs">
-        <button class="tab-btn active" onclick="switchTab('corte')">⚡ Criar Cortes</button>
-        <button class="tab-btn" onclick="switchTab('terminal')">💻 Terminal Logs</button>
-        <button class="tab-btn" onclick="switchTab('config')">⚙️ Configurações / Login</button>
-        <button class="tab-btn" onclick="switchTab('historico')">📁 Histórico</button>
+      <nav class="nav-tabs" role="tablist" aria-label="Navegação principal do painel">
+        <button type="button" role="tab" id="tabBtn-corte" aria-selected="true" aria-controls="tab-corte" class="tab-btn active" onclick="switchTab('corte')">
+          <span aria-hidden="true">✂️</span> Criar Cortes
+        </button>
+        <button type="button" role="tab" id="tabBtn-terminal" aria-selected="false" aria-controls="tab-terminal" class="tab-btn" onclick="switchTab('terminal')">
+          <span aria-hidden="true">💻</span> Logs
+        </button>
+        <button type="button" role="tab" id="tabBtn-config" aria-selected="false" aria-controls="tab-config" class="tab-btn" onclick="switchTab('config')">
+          <span aria-hidden="true">⚙️</span> Configurações
+        </button>
+        <button type="button" role="tab" id="tabBtn-historico" aria-selected="false" aria-controls="tab-historico" class="tab-btn" onclick="switchTab('historico')">
+          <span aria-hidden="true">📁</span> Histórico
+        </button>
+        <button type="button" role="tab" id="tabBtn-lgpd" aria-selected="false" aria-controls="tab-lgpd" class="tab-btn" onclick="switchTab('lgpd')">
+          <span aria-hidden="true">⚖️</span> Privacidade &amp; LGPD
+        </button>
       </nav>
 
-      <button class="btn-shutdown" onclick="shutdownServer()">
-        🛑 Desligar Servidor
+      <button type="button" class="btn-shutdown" onclick="shutdownServer()" aria-label="Desligar servidor local">
+        <span aria-hidden="true">🛑</span> Desligar Servidor
       </button>
     </div>
   </header>
 
-  <div class="app-layout">
+  <main id="mainContent" class="app-layout" tabindex="-1">
     <div>
       <!-- TAB 1: CRIAR CORTES -->
-      <div id="tab-corte" class="tab-content active">
-        <section class="panel">
-          <h2 class="panel-title">🚀 Gerador de Clipes Virais</h2>
+      <div id="tab-corte" role="tabpanel" aria-labelledby="tabBtn-corte" class="tab-content active">
+        <section class="panel" aria-labelledby="headingCriarCortes">
+          <h1 id="headingCriarCortes" class="panel-title">
+            <span aria-hidden="true">✂️</span> Editor Automatizado de Cortes Verticais
+          </h1>
 
           <!-- Status do TikTok -->
-          <div class="tiktok-status-bar" id="tiktokStatusBar">
-            <span id="tiktokStatusText">⚪ Verificando conta TikTok...</span>
-            <button class="action-btn" id="tiktokActionBtn" style="flex:none; padding:4px 10px; font-size:0.75rem;" onclick="switchTab('config')">
-              Conectar
+          <div class="tiktok-status-bar" id="tiktokStatusBar" role="status" aria-live="polite">
+            <span id="tiktokStatusText">Verificando conexão com TikTok...</span>
+            <button type="button" class="action-btn copy-btn" id="tiktokActionBtn" style="flex:none; padding:6px 12px; min-height:38px;" onclick="switchTab('config')">
+              Configurar
             </button>
           </div>
 
-          <label class="input-label">URL do Vídeo ou Live do YouTube</label>
+          <label class="input-label" for="youtubeUrl">URL do vídeo no YouTube</label>
           <div class="input-row">
-            <input type="url" id="youtubeUrl" placeholder="https://www.youtube.com/watch?v=..." />
-            <button class="btn-paste" onclick="pasteClipboard()">Colar</button>
+            <input type="url" id="youtubeUrl" name="youtubeUrl" placeholder="https://www.youtube.com/watch?v=..." autocomplete="off" />
+            <button type="button" class="btn-paste" onclick="pasteClipboard()" aria-label="Colar link da área de transferência">Colar</button>
           </div>
 
           <div class="grid-options">
             <div class="select-box">
-              <label class="input-label">Quantidade de Cortes</label>
+              <label class="input-label" for="clipsCount">Quantidade de cortes</label>
               <select id="clipsCount" onchange="toggleCustomClips()">
-                <option value="0" selected>🔥 Máximo Possível (Vídeo Inteiro)</option>
+                <option value="0" selected>Máximo Possível (Vídeo Inteiro)</option>
                 <option value="3">3 cortes</option>
                 <option value="5">5 cortes</option>
                 <option value="10">10 cortes</option>
@@ -489,12 +727,13 @@
                 <option value="30">30 cortes</option>
                 <option value="50">50 cortes</option>
                 <option value="100">100 cortes</option>
-                <option value="custom">✏️ Personalizado (1 a 100)...</option>
+                <option value="custom">Personalizado (1 a 100)...</option>
               </select>
-              <input type="number" id="customClipsInput" min="1" max="100" value="25" placeholder="Digite a qtd (1-100)" style="display:none; margin-top:8px; width:100%;" />
+              <label class="sr-only" for="customClipsInput">Quantidade personalizada de cortes entre 1 e 100</label>
+              <input type="number" id="customClipsInput" min="1" max="100" value="25" placeholder="Digite de 1 a 100" style="display:none; margin-top:8px; width:100%;" />
             </div>
             <div class="select-box">
-              <label class="input-label">Enquadramento</label>
+              <label class="input-label" for="layout">Enquadramento 9:16</label>
               <select id="layout">
                 <option value="blur" selected>Fundo Borrado</option>
                 <option value="split">Tela Dividida (Split)</option>
@@ -505,197 +744,125 @@
           <div class="toggles-list">
             <div class="toggle-item">
               <div class="toggle-info">
-                <h4>Legendas TikTok / Hormozi</h4>
-                <p>Palavra por palavra animada em alta retenção</p>
+                <label for="subtitlesToggle">Legendas sincronizadas</label>
+                <p>Adiciona legendas palavra por palavra geradas pela transcrição</p>
               </div>
-              <label class="switch">
+              <span class="switch">
                 <input type="checkbox" id="subtitlesToggle" checked />
-                <span class="slider"></span>
-              </label>
+                <span class="slider" aria-hidden="true"></span>
+              </span>
             </div>
 
             <div class="toggle-item">
               <div class="toggle-info">
-                <h4 style="color:var(--secondary);">📲 Postar no TikTok Automaticamente</h4>
-                <p>Publica direto na conta conectada ao terminar o corte</p>
+                <label for="autopostToggle" style="color:#7dd3fc;">Publicar no TikTok automaticamente</label>
+                <p>Envia para sua conta conectada (sujeito às regras e verificações da plataforma)</p>
               </div>
-              <label class="switch">
+              <span class="switch">
                 <input type="checkbox" id="autopostToggle" checked />
-                <span class="slider"></span>
-              </label>
+                <span class="slider" aria-hidden="true"></span>
+              </span>
             </div>
 
             <div class="toggle-item">
               <div class="toggle-info">
-                <h4 style="color:#ef4444;">🗑️ Não guardar vídeos após postar</h4>
-                <p>Só exclui do computador quando o TikTok confirmar a postagem (se falhar, fica salvo p/ baixar)</p>
+                <label for="deleteAfterToggle" style="color:#fca5a5;">Excluir arquivos locais após publicar</label>
+                <p>Remove o vídeo do disco somente após confirmação de envio; se falhar, mantém para download</p>
               </div>
-              <label class="switch">
+              <span class="switch">
                 <input type="checkbox" id="deleteAfterToggle" checked />
-                <span class="slider"></span>
-              </label>
+                <span class="slider" aria-hidden="true"></span>
+              </span>
             </div>
           </div>
 
-          <button class="btn-primary" id="startBtn" onclick="startCutProcess()">
-            ✂️ Gerar Cortes Virais
+          <!-- Confirmação de Direitos Autorais (Lei nº 9.610/1998) -->
+          <div class="copyright-box">
+            <input type="checkbox" id="copyrightCheck" />
+            <label for="copyrightCheck">
+              <strong>Declaração de Direitos Autorais (Lei nº 9.610/1998):</strong> Confirmo que possuo os direitos autorais ou autorização válida para editar e publicar este vídeo.
+            </label>
+          </div>
+
+          <button type="button" class="btn-primary" id="startBtn" onclick="startCutProcess()">
+            <span aria-hidden="true">✂️</span> Gerar Cortes
           </button>
 
-          <div class="progress-card" id="progressCard">
+          <div class="progress-card" id="progressCard" role="status" aria-live="polite">
             <div class="prog-header">
               <span id="pStatus">Processando...</span>
               <span id="pPercent">0%</span>
             </div>
-            <div class="bar-bg">
+            <div class="bar-bg" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="pBarRole">
               <div class="bar-fill" id="pBar"></div>
             </div>
             <div class="prog-msg" id="pMsg">Iniciando tarefas...</div>
           </div>
 
-          <div style="margin-top:16px; padding:10px 14px; background:#0b0e14; border:1px solid #202736; border-radius:10px; display:flex; justify-content:space-between; align-items:center; font-size:0.8rem;">
-            <span style="color:var(--text-muted);">📱 Celular: <b style="color:var(--secondary);" id="footerMobileUrl">Carregando...</b></span>
-            <button class="action-btn copy-btn" style="flex:none; padding:4px 8px; font-size:0.75rem;" onclick="openMobileModal()">
-              📷 QR Code
+          <div style="margin-top:16px; padding:12px 14px; background:#0b0e14; border:1px solid #2c3446; border-radius:10px; display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:0.84rem;">
+            <span style="color:var(--text-muted);">Acesso na rede local: <strong style="color:#7dd3fc;" id="footerMobileUrl">Carregando...</strong></span>
+            <button type="button" class="action-btn copy-btn" style="flex:none; padding:6px 12px; min-height:38px;" onclick="openMobileModal()">
+              Ver QR Code
             </button>
           </div>
         </section>
       </div>
 
       <!-- TAB 2: TERMINAL EMBUTIDO -->
-      <div id="tab-terminal" class="tab-content">
-        <section class="panel">
+      <div id="tab-terminal" role="tabpanel" aria-labelledby="tabBtn-terminal" class="tab-content">
+        <section class="panel" aria-labelledby="headingLogs">
           <div class="terminal-header">
-            <h2 class="panel-title" style="margin-bottom:0;">💻 Console do Servidor (Tempo Real)</h2>
-            <div class="term-dots">
-              <div class="dot red"></div>
-              <div class="dot yellow"></div>
-              <div class="dot green"></div>
-            </div>
+            <h2 id="headingLogs" class="panel-title" style="margin-bottom:0;">
+              <span aria-hidden="true">💻</span> Logs do Servidor (Dados Sensíveis Mascarados)
+            </h2>
           </div>
-          <div class="terminal-window" id="terminalOutput">Carregando logs do servidor...</div>
+          <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:10px;">
+            Tokens, senhas, chaves de API, e-mails e telefones são ocultados automaticamente antes da exibição.
+          </p>
+          <div class="terminal-window" id="terminalOutput" role="log" aria-live="polite">Carregando logs do servidor...</div>
         </section>
       </div>
 
-      <!-- TAB 3: CONFIGURAÇÕES & LOGIN TIKTOK -->
-      <div id="tab-config" class="tab-content">
-        <!-- BLOCO LOGIN DO TIKTOK COM MÚLTIPLOS MÉTODOS -->
-        <section class="panel" style="border-color: rgba(255, 0, 80, 0.4);">
-          <h2 class="panel-title" style="color:var(--primary);">
-            📱 Conectar Login do TikTok
+      <!-- TAB 3: CONFIGURAÇÕES & CONEXÃO (COLETA MÍNIMA LGPD) -->
+      <div id="tab-config" role="tabpanel" aria-labelledby="tabBtn-config" class="tab-content">
+        <section class="panel" style="border-color: rgba(217, 0, 68, 0.5);" aria-labelledby="headingTikTok">
+          <h2 id="headingTikTok" class="panel-title">
+            <span aria-hidden="true">📱</span> Conectar Conta do TikTok (Coleta Mínima)
           </h2>
-          <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:14px;">
-            Conecte sua conta para que os clipes sejam postados de forma 100% automática:
+          <p style="font-size:0.86rem; color:var(--text-muted); margin-bottom:14px;">
+            Por privacidade (LGPD — Princípio da Necessidade), recomendamos conectar diretamente pela janela oficial do navegador, sem digitar sua senha em formulários de terceiros.
           </p>
 
-          <!-- BOTÃO DE CONEXÃO REAL DIRETA COM O CHROME -->
-          <div style="background: linear-gradient(135deg, rgba(255,0,80,0.15), rgba(0,242,234,0.15)); border: 1px solid rgba(255,0,80,0.4); border-radius: 14px; padding: 18px; margin-bottom: 20px; text-align: center;">
-            <div style="font-weight: 800; font-size: 1.05rem; margin-bottom: 6px;">
-              🌐 Conectar Conta Real no Navegador Chrome (Recomendado)
+          <div style="background: #0e131e; border: 1px solid #ff4d79; border-radius: 14px; padding: 18px; margin-bottom: 18px; text-align: center;">
+            <div style="font-weight: 800; font-size: 1rem; margin-bottom: 6px; color:#ffffff;">
+              Conectar pelo Navegador Chrome (Recomendado)
             </div>
-            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 14px; line-height: 1.4;">
-              Abre uma janela real do Chrome para você entrar no TikTok (com Google, QR Code, Telefone ou Senha). A sessão fica salva no perfil para postar direto sem intervenção manual!
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 14px;">
+              Abre a página oficial do TikTok no Chrome da sua máquina. Sua sessão fica armazenada apenas localmente no seu computador.
             </p>
-            <button class="btn-primary" onclick="openTikTokBrowserLogin()" style="background: linear-gradient(45deg, #ff0050, #00f2fe); font-size: 0.95rem; font-weight: 800; padding: 12px 20px;">
-              🚀 Abrir Navegador e Conectar TikTok
+            <button type="button" class="btn-primary" onclick="openTikTokBrowserLogin()">
+              <span aria-hidden="true">🌐</span> Abrir Navegador para Login no TikTok
             </button>
-            <div id="browserLoginStatusText" style="margin-top: 10px; font-size: 0.8rem; color: #a1a1aa;"></div>
+            <div id="browserLoginStatusText" role="status" aria-live="polite" style="margin-top: 10px; font-size: 0.84rem; color: var(--text-muted);"></div>
           </div>
 
-          <!-- SELETOR DE MÉTODO DE LOGIN -->
-          <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; margin-bottom:16px;">
-            <button type="button" class="tab-btn active" id="btnMethodGoogle" onclick="switchLoginMethod('google')" style="background:#0e121a; border:1px solid #232b3c; padding:10px 4px; font-size:0.8rem;">
-              🌐 Google
-            </button>
-            <button type="button" class="tab-btn" id="btnMethodPhone" onclick="switchLoginMethod('phone')" style="background:#0e121a; border:1px solid #232b3c; padding:10px 4px; font-size:0.8rem;">
-              📱 Telefone
-            </button>
-            <button type="button" class="tab-btn" id="btnMethodUser" onclick="switchLoginMethod('user')" style="background:#0e121a; border:1px solid #232b3c; padding:10px 4px; font-size:0.8rem;">
-              👤 Usuário
-            </button>
-          </div>
-
-          <!-- MÉTODO 1: CONTA GOOGLE -->
-          <div id="method-google" class="login-method-box" style="background: #0e121a; border: 1px solid #232b3c; border-radius: 14px; padding: 16px; margin-bottom: 16px;">
-            <div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 8px;">
-              🌐 Conectar com a Conta Google do TikTok
-            </div>
-            <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px;">
-              Ideal se você usa o botão <i>"Continuar com o Google"</i> para entrar no TikTok.
-            </p>
-
-            <label class="input-label">E-mail da sua Conta Google</label>
-            <div class="input-row">
-              <input type="text" id="ttGoogleEmail" placeholder="seuemail@gmail.com" />
-            </div>
-
-            <button class="btn-primary" onclick="connectTikTokGoogle()" style="background:#fff; color:#000; box-shadow:0 4px 18px rgba(255,255,255,0.2); margin-top:6px; font-weight:800;">
-              <svg width="18" height="18" viewBox="0 0 24 24" style="margin-right:6px;"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.29 21.43 7.37 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.16 0 9.99 0 12s.46 3.84 1.26 5.42l4.02-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.37 0 3.29 2.57 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>
-              Conectar com a Conta Google
-            </button>
-          </div>
-
-          <!-- MÉTODO 2: NÚMERO DE TELEFONE -->
-          <div id="method-phone" class="login-method-box" style="display:none; background: #0e121a; border: 1px solid #232b3c; border-radius: 14px; padding: 16px; margin-bottom: 16px;">
-            <div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 8px;">
-              📱 Conectar com Número de Telefone
-            </div>
-            <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px;">
-              Informe o número de celular cadastrado na sua conta do TikTok.
-            </p>
-
-            <label class="input-label">Número com DDD (Ex: 11 98765-4321)</label>
-            <div class="input-row">
-              <input type="text" id="ttPhone" placeholder="+55 11 98765-4321" />
-            </div>
-
-            <label class="input-label">Senha ou Código SMS (Opcional)</label>
-            <div class="input-row">
-              <input type="password" id="ttPhonePassword" placeholder="Sua senha da conta ou código SMS" />
-            </div>
-
-            <button class="btn-primary" onclick="connectTikTokPhone()" style="background:#22c55e; box-shadow:0 4px 18px rgba(34,197,94,0.3); margin-top:6px;">
-              🚀 Conectar com Telefone
-            </button>
-          </div>
-
-          <!-- MÉTODO 3: USUÁRIO E SENHA -->
-          <div id="method-user" class="login-method-box" style="display:none; background: #0e121a; border: 1px solid #232b3c; border-radius: 14px; padding: 16px; margin-bottom: 16px;">
-            <div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 8px;">
-              👤 Entrar com Usuário ou E-mail
-            </div>
-
-            <label class="input-label">Usuário ou E-mail do TikTok</label>
-            <div class="input-row">
-              <input type="text" id="ttUsername" placeholder="@seu_usuario ou email@gmail.com" />
-            </div>
-
-            <label class="input-label">Senha do TikTok</label>
-            <div class="input-row">
-              <input type="password" id="ttPassword" placeholder="Sua senha do TikTok" />
-            </div>
-
-            <button class="btn-primary" onclick="connectTikTokUserPassword()" style="background:#22c55e; box-shadow:0 4px 18px rgba(34,197,94,0.3); margin-top:6px;">
-              🚀 Conectar Conta do TikTok
-            </button>
-          </div>
-
-          <!-- MÉTODOS ALTERNATIVOS (SESSION ID / TOKEN) -->
-          <details style="font-size:0.85rem; color:var(--text-muted); cursor:pointer;">
-            <summary style="font-weight:600; padding:6px 0;">⚙️ Opções Avançadas (Cookie Session ID ou API Token)</summary>
-            
+          <details style="font-size:0.88rem; color:var(--text-muted);">
+            <summary style="font-weight:700; padding:10px 0; cursor:pointer; color:#ffffff;">
+              Opções avançadas (Cookie Session ID ou Token Oficial da API)
+            </summary>
             <div style="margin-top:12px;">
-              <label class="input-label">Session ID do TikTok (Cookie)</label>
+              <label class="input-label" for="tiktokSessionId">Session ID do TikTok (armazenado criptografado com Fernet)</label>
               <div class="input-row">
-                <input type="password" id="tiktokSessionId" placeholder="Cole seu cookie sessionid..." />
-                <button class="action-btn copy-btn" style="flex:none; padding:0 16px;" onclick="connectTikTokSession()">
+                <input type="password" id="tiktokSessionId" placeholder="Cole seu cookie sessionid..." autocomplete="off" />
+                <button type="button" class="action-btn copy-btn" style="flex:none; padding:0 16px;" onclick="connectTikTokSession()">
                   Salvar
                 </button>
               </div>
 
-              <label class="input-label">Token de Desenvolvedor (TikTok API Oficial)</label>
+              <label class="input-label" for="cfgTikTokToken">Token da API Oficial do TikTok (Desenvolvedor)</label>
               <div class="input-row">
-                <input type="password" id="cfgTikTokToken" placeholder="Token de acesso da API..." />
-                <button class="action-btn copy-btn" style="flex:none; padding:0 16px;" onclick="connectTikTokToken()">
+                <input type="password" id="cfgTikTokToken" placeholder="Token de acesso oficial..." autocomplete="off" />
+                <button type="button" class="action-btn copy-btn" style="flex:none; padding:0 16px;" onclick="connectTikTokToken()">
                   Salvar
                 </button>
               </div>
@@ -703,330 +870,487 @@
           </details>
         </section>
 
-        <!-- BLOCO CONFIGURAÇÕES GERAIS -->
-        <section class="panel">
-          <h2 class="panel-title">⚙️ Chaves & Modelos de IA</h2>
-          
-          <label class="input-label">Chave Google Gemini API</label>
+        <section class="panel" aria-labelledby="headingApiConfig">
+          <h2 id="headingApiConfig" class="panel-title">
+            <span aria-hidden="true">⚙️</span> Chaves e Modelos Locais
+          </h2>
+
+          <label class="input-label" for="cfgGeminiKey">Chave Google Gemini API</label>
           <div class="input-row">
-            <input type="password" id="cfgGeminiKey" placeholder="Cole sua chave AI Studio aqui..." />
+            <input type="password" id="cfgGeminiKey" placeholder="Cole sua chave Google AI Studio..." autocomplete="off" />
           </div>
 
           <div class="grid-options">
             <div class="select-box">
-              <label class="input-label">Privacidade TikTok</label>
+              <label class="input-label" for="cfgPrivacy">Privacidade padrão no TikTok</label>
               <select id="cfgPrivacy">
-                <option value="SELF_ONLY">Rascunho Privado</option>
+                <option value="SELF_ONLY">Rascunho / Apenas Eu</option>
                 <option value="PUBLIC_TO_EVERYONE">Público para Todos</option>
                 <option value="MUTUAL_FOLLOW_FRIENDS">Apenas Amigos</option>
               </select>
             </div>
             <div class="select-box">
-              <label class="input-label">Modelo Whisper</label>
+              <label class="input-label" for="cfgWhisper">Modelo Whisper (Transcrição local)</label>
               <select id="cfgWhisper">
                 <option value="base" selected>Base (Rápido)</option>
                 <option value="small">Small (Equilibrado)</option>
-                <option value="medium">Medium (Alta Precisão)</option>
+                <option value="medium">Medium (Maior precisão)</option>
               </select>
             </div>
           </div>
 
-          <button class="btn-primary" onclick="saveConfiguration()" style="background:#22c55e;">
-            💾 Salvar Configurações Gerais
+          <button type="button" class="btn-primary btn-success" onclick="saveConfiguration()">
+            <span aria-hidden="true">💾</span> Salvar Configurações
           </button>
         </section>
       </div>
 
       <!-- TAB 4: HISTÓRICO -->
-      <div id="tab-historico" class="tab-content">
-        <section class="panel">
-          <h2 class="panel-title">📁 Vídeos Anteriores</h2>
+      <div id="tab-historico" role="tabpanel" aria-labelledby="tabBtn-historico" class="tab-content">
+        <section class="panel" aria-labelledby="headingHistorico">
+          <h2 id="headingHistorico" class="panel-title">
+            <span aria-hidden="true">📁</span> Histórico de Cortes Gerados
+          </h2>
           <div id="historyList" style="display:flex; flex-direction:column; gap:12px;"></div>
+        </section>
+      </div>
+
+      <!-- TAB 5: PRIVACIDADE, TERMOS, REEMBOLSO & LGPD -->
+      <div id="tab-lgpd" role="tabpanel" aria-labelledby="tabBtn-lgpd" class="tab-content">
+        <section class="panel" aria-labelledby="headingLegalDocs">
+          <h2 id="headingLegalDocs" class="panel-title">
+            <span aria-hidden="true">⚖️</span> Documentos Legais e Conformidade (Brasil)
+          </h2>
+
+          <div class="audit-grid" aria-label="Resumo da auditoria de privacidade">
+            <div class="audit-chip">0 scripts de Google Analytics</div>
+            <div class="audit-chip">0 pixels / rastreadores</div>
+            <div class="audit-chip">Fontes e QR Code 100% locais</div>
+            <div class="audit-chip">Sessão cifrada (Fernet AES)</div>
+          </div>
+
+          <div class="legal-subnav" role="tablist" aria-label="Selecionar documento legal">
+            <button type="button" class="legal-pill active" onclick="showLegalDoc('privacy_policy', this)">Privacidade (LGPD)</button>
+            <button type="button" class="legal-pill" onclick="showLegalDoc('terms_of_use', this)">Termos &amp; Direitos Autorais</button>
+            <button type="button" class="legal-pill" onclick="showLegalDoc('refund_policy', this)">Política de Reembolso</button>
+            <button type="button" class="legal-pill" onclick="showLegalDoc('cookie_policy', this)">Cookies</button>
+            <button type="button" class="legal-pill" onclick="showLegalDoc('third_parties', this)">Terceiros</button>
+            <button type="button" class="legal-pill" onclick="showLegalDoc('brazilian_laws', this)">Leis &amp; Empresa</button>
+          </div>
+
+          <div id="legalDocViewer" class="legal-doc-box" tabindex="0" aria-label="Conteúdo do documento legal selecionado">
+            Carregando documentos legais...
+          </div>
+        </section>
+
+        <!-- DIREITOS DO TITULAR (ART. 18 LGPD): PORTABILIDADE, EXCLUSÃO E FORMULÁRIO -->
+        <section class="panel" aria-labelledby="headingLgpdRights">
+          <h2 id="headingLgpdRights" class="panel-title">
+            <span aria-hidden="true">🛡️</span> Seus Direitos LGPD (Art. 18) e Exclusão de Dados
+          </h2>
+          <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:14px;">
+            Exerça imediatamente seus direitos de acesso, portabilidade e eliminação definitiva dos dados armazenados localmente:
+          </p>
+
+          <div class="btn-group" style="margin-bottom:18px;">
+            <a href="/api/lgpd/export-data" download="meus_dados_lgpd_clip_farm.json" class="action-btn btn-secondary-solid">
+              <span aria-hidden="true">📥</span> Exportar Meus Dados (JSON)
+            </a>
+            <button type="button" class="action-btn btn-danger-solid" onclick="deleteAllUserData()">
+              <span aria-hidden="true">🗑️</span> Excluir Todos os Meus Dados
+            </button>
+          </div>
+
+          <hr style="border:none; border-top:1px solid var(--surface-border); margin:16px 0;" />
+
+          <h3 style="font-size:0.98rem; font-weight:800; margin-bottom:8px; color:#ffffff;">
+            Formulário de Solicitação LGPD / DPO (Coleta Mínima)
+          </h3>
+          <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:12px;">
+            Não solicitamos CPF, RG, telefone ou endereço. Informe apenas o tipo de pedido e, se desejar retorno, um e-mail de contato.
+          </p>
+
+          <form id="lgpdForm" onsubmit="submitLgpdForm(event)">
+            <div class="select-box" style="margin-bottom:12px;">
+              <label class="input-label" for="lgpdReqType">Tipo de solicitação</label>
+              <select id="lgpdReqType" required>
+                <option value="acesso">Confirmação e acesso aos dados (Art. 18, I e II)</option>
+                <option value="correcao">Correção de dados (Art. 18, III)</option>
+                <option value="eliminacao">Eliminação de dados pessoais (Art. 18, VI)</option>
+                <option value="portabilidade">Portabilidade de dados (Art. 18, V)</option>
+                <option value="revogacao">Revogação de consentimento (Art. 18, IX)</option>
+                <option value="reembolso">Solicitação de reembolso (CDC Art. 49)</option>
+                <option value="duvida">Dúvida ao Encarregado de Dados (DPO)</option>
+              </select>
+            </div>
+
+            <label class="input-label" for="lgpdContactEmail">E-mail para retorno (opcional)</label>
+            <div class="input-row">
+              <input type="email" id="lgpdContactEmail" placeholder="seuemail@exemplo.com (opcional)" autocomplete="email" />
+            </div>
+
+            <label class="input-label" for="lgpdDetails">Resumo da solicitação (mínimo necessário)</label>
+            <div style="margin-bottom:12px;">
+              <textarea id="lgpdDetails" maxlength="800" placeholder="Descreva brevemente sua solicitação sem incluir senhas ou documentos pessoais..."></textarea>
+            </div>
+
+            <button type="submit" class="btn-primary">
+              <span aria-hidden="true">📩</span> Registrar Solicitação LGPD
+            </button>
+          </form>
+          <div id="lgpdFormResult" role="status" aria-live="polite" style="margin-top:10px; font-size:0.85rem; color:#86efac;"></div>
         </section>
       </div>
     </div>
 
     <!-- COLUNA DA DIREITA: RESULTADOS -->
-    <div class="results-col">
+    <section class="results-col" aria-labelledby="headingClipsProntos">
       <div style="display:flex; justify-content:space-between; align-items:center;">
-        <h2 style="font-size:1.2rem; font-weight:800;">✨ Clipes Prontos para Postagem</h2>
+        <h2 id="headingClipsProntos" style="font-size:1.2rem; font-weight:800; color:#ffffff;">
+          <span aria-hidden="true">🎬</span> Cortes Gerados
+        </h2>
       </div>
 
       <div class="feed-grid" id="clipsFeed">
-        <div style="grid-column: 1/-1; padding: 40px; text-align: center; color: var(--text-muted); background: var(--surface); border-radius: 18px; border: 1px dashed var(--surface-border);">
-          Nenhum corte gerado no momento. Cole um link à esquerda e clique em <b>Gerar Cortes Virais</b>!
+        <div style="grid-column: 1/-1; padding: 36px; text-align: center; color: var(--text-muted); background: var(--surface); border-radius: 16px; border: 1px dashed var(--surface-border);">
+          Nenhum corte gerado no momento. Informe uma URL do YouTube à esquerda, confirme os direitos autorais e clique em <strong>Gerar Cortes</strong>.
         </div>
       </div>
+    </section>
+  </main>
+
+  <!-- RODAPÉ INSTITUCIONAL COM DADOS LEGAIS E LINKS OBRIGATÓRIOS -->
+  <footer class="site-footer" role="contentinfo">
+    <div class="footer-inner">
+      <div>
+        <div style="font-weight:800; color:#ffffff; margin-bottom:4px;">Clip Farm Studio — Execução Local Segura</div>
+        <div id="footerCompanyInfo">Carregando dados legais da empresa / controlador...</div>
+        <div style="margin-top:4px; font-size:0.78rem;">
+          Conformidade: LGPD (Lei nº 13.709/2018) · Marco Civil (Lei nº 12.965/2014) · CDC (Lei nº 8.078/1990) · Direitos Autorais (Lei nº 9.610/1998) · LBI Acessibilidade (Lei nº 13.146/2015).
+        </div>
+      </div>
+      <div class="footer-links" aria-label="Links legais e de privacidade">
+        <button type="button" class="footer-link-btn" onclick="openLegalSection('privacy_policy')">Política de Privacidade</button>
+        <button type="button" class="footer-link-btn" onclick="openLegalSection('terms_of_use')">Termos de Uso</button>
+        <button type="button" class="footer-link-btn" onclick="openLegalSection('refund_policy')">Política de Reembolso</button>
+        <button type="button" class="footer-link-btn" onclick="openCookieModal()">Preferências de Cookies</button>
+        <button type="button" class="footer-link-btn" onclick="openLegalSection('brazilian_laws')">Dados Legais &amp; LGPD</button>
+      </div>
+    </div>
+  </footer>
+
+  <!-- BANNER DE CONSENTIMENTO DE COOKIES (LGPD) -->
+  <div id="cookieBanner" class="cookie-banner" role="dialog" aria-modal="false" aria-labelledby="cookieBannerTitle">
+    <h2 id="cookieBannerTitle" style="font-size:1rem; font-weight:800; color:#ffffff; margin-bottom:6px;">
+      <span aria-hidden="true">🍪</span> Privacidade e Consentimento de Cookies (LGPD)
+    </h2>
+    <p style="font-size:0.86rem; color:var(--text-muted);">
+      Utilizamos apenas armazenamento estritamente necessário para o funcionamento seguro da interface. <strong>Não utilizamos Google Analytics, anúncios ou scripts de rastreamento.</strong> Você pode escolher se deseja salvar preferências opcionais de interface.
+    </p>
+    <div class="cookie-banner-actions">
+      <button type="button" class="action-btn btn-success" style="flex:none; padding:10px 16px;" onclick="saveCookieChoice(true)">
+        Aceitar Essenciais + Preferências
+      </button>
+      <button type="button" class="action-btn btn-secondary-solid" style="flex:none; padding:10px 16px;" onclick="saveCookieChoice(false)">
+        Apenas Essenciais
+      </button>
+      <button type="button" class="action-btn copy-btn" style="flex:none; padding:10px 16px;" onclick="openCookieModal()">
+        Personalizar
+      </button>
     </div>
   </div>
 
-  <!-- MODAL DE ACESSO MOBILE COM QR CODE -->
-  <div class="modal-overlay" id="mobileModal">
+  <!-- MODAL DE PREFERÊNCIAS DE COOKIES -->
+  <div class="modal-overlay" id="cookieModal" role="dialog" aria-modal="true" aria-labelledby="cookieModalTitle">
+    <div class="modal-card" style="text-align:left;">
+      <button type="button" class="modal-close" onclick="closeCookieModal()" aria-label="Fechar janela de preferências de cookies">&times;</button>
+      <h2 id="cookieModalTitle" style="font-size:1.15rem; font-weight:800; color:#ffffff; margin-bottom:10px;">
+        Preferências de Cookies e Armazenamento Local
+      </h2>
+      <p style="font-size:0.84rem; color:var(--text-muted); margin-bottom:14px;">
+        Gerencie seu consentimento conforme a LGPD (Lei nº 13.709/2018). Você pode alterar ou revogar a qualquer momento.
+      </p>
+
+      <div class="toggles-list">
+        <div class="toggle-item">
+          <div class="toggle-info">
+            <label for="ckEssential">Estritamente Necessários (Sempre ativo)</label>
+            <p>Segurança anti-CSRF, consentimento e funcionamento básico.</p>
+          </div>
+          <span class="switch">
+            <input type="checkbox" id="ckEssential" checked disabled />
+            <span class="slider" aria-hidden="true"></span>
+          </span>
+        </div>
+
+        <div class="toggle-item">
+          <div class="toggle-info">
+            <label for="ckPreferences">Preferências de Interface (Opcional)</label>
+            <p>Lembra escolhas visuais como quantidade de cortes e enquadramento.</p>
+          </div>
+          <span class="switch">
+            <input type="checkbox" id="ckPreferences" />
+            <span class="slider" aria-hidden="true"></span>
+          </span>
+        </div>
+
+        <div class="toggle-item">
+          <div class="toggle-info">
+            <label for="ckAnalytics">Analytics e Rastreamento (Desativado)</label>
+            <p>Este sistema não contém Google Analytics nem rastreadores de terceiros.</p>
+          </div>
+          <span class="switch">
+            <input type="checkbox" id="ckAnalytics" disabled />
+            <span class="slider" aria-hidden="true"></span>
+          </span>
+        </div>
+      </div>
+
+      <button type="button" class="btn-primary btn-success" onclick="saveCookieChoice(document.getElementById('ckPreferences').checked)">
+        Salvar Preferências
+      </button>
+    </div>
+  </div>
+
+  <!-- MODAL DE ACESSO MOBILE COM QR CODE 100% LOCAL -->
+  <div class="modal-overlay" id="mobileModal" role="dialog" aria-modal="true" aria-labelledby="mobileModalTitle">
     <div class="modal-card">
-      <button class="modal-close" onclick="closeMobileModal()">&times;</button>
-      <h3 style="font-size:1.25rem; font-weight:800; margin-bottom:6px;">📱 Acessar pelo Celular</h3>
-      <p style="font-size:0.85rem; color:var(--text-muted);">
-        Aponte a câmera do seu smartphone para o QR Code abaixo ou digite o link no navegador:
+      <button type="button" class="modal-close" onclick="closeMobileModal()" aria-label="Fechar janela de acesso pelo celular">&times;</button>
+      <h2 id="mobileModalTitle" style="font-size:1.2rem; font-weight:800; margin-bottom:6px; color:#ffffff;">
+        <span aria-hidden="true">📱</span> Acessar pelo Celular (Rede Local)
+      </h2>
+      <p style="font-size:0.86rem; color:var(--text-muted);">
+        Aponte a câmera do smartphone para o QR Code gerado localmente (nenhum dado é enviado para servidores externos):
       </p>
 
       <div class="qr-container">
-        <img id="qrCodeImg" src="" alt="QR Code de Acesso" />
+        <img id="qrCodeImg" src="/api/qr" alt="QR Code local contendo o endereço de acesso na rede Wi-Fi para o Clip Farm Studio" />
       </div>
 
       <div class="mobile-url-box">
         <span id="mobileUrlDisplay">Carregando...</span>
-        <button class="action-btn copy-btn" style="flex:none; padding:4px 10px; font-size:0.75rem;" onclick="copyMobileUrl()">
+        <button type="button" class="action-btn copy-btn" style="flex:none; padding:6px 12px; min-height:38px;" onclick="copyMobileUrl()">
           Copiar
         </button>
       </div>
 
-      <a id="whatsappShareBtn" href="#" target="_blank" class="action-btn" style="background:#25D366; color:#000; font-weight:800; margin-top:10px; text-decoration:none; padding:12px;">
-        💬 Enviar Link para meu WhatsApp
-      </a>
-
-      <p style="font-size:0.75rem; color:var(--text-muted); margin-top:12px;">
-        💡 <i>Dica:</i> Certifique-se de que o computador e o celular estejam conectados no mesmo Wi-Fi.
+      <p style="font-size:0.8rem; color:var(--text-muted); margin-top:14px;">
+        Certifique-se de que computador e celular estejam na mesma rede Wi-Fi.
       </p>
     </div>
   </div>
 
-  <div id="toast"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
 
   <script>
+    let cachedLegalDocs = null;
+    let cachedMobileUrl = "";
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function escapeJs(str) {
+      return String(str || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    }
+
     function showToast(msg) {
       const t = document.getElementById('toast');
       t.innerText = msg;
       t.style.display = 'block';
-      setTimeout(() => { t.style.display = 'none'; }, 3500);
+      setTimeout(() => { t.style.display = 'none'; }, 4000);
     }
 
     function switchTab(name) {
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.nav-tabs .tab-btn').forEach(b => {
+        b.classList.remove('active');
+        b.setAttribute('aria-selected', 'false');
+      });
       document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-      
-      const activeBtn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.innerText.toLowerCase().includes(name));
-      if (activeBtn) activeBtn.classList.add('active');
-      document.getElementById(`tab-${name}`).classList.add('active');
+
+      const activeBtn = document.getElementById(`tabBtn-${name}`);
+      if (activeBtn) {
+        activeBtn.classList.add('active');
+        activeBtn.setAttribute('aria-selected', 'true');
+      }
+      const panel = document.getElementById(`tab-${name}`);
+      if (panel) panel.classList.add('active');
 
       if (name === 'config') { loadConfiguration(); checkTikTokStatus(); }
       if (name === 'historico') loadHistory();
       if (name === 'terminal') fetchLogs();
+      if (name === 'lgpd') loadLegalDocs();
     }
 
-    function switchLoginMethod(method) {
-      document.querySelectorAll('.login-method-box').forEach(b => b.style.display = 'none');
-      document.querySelectorAll('#btnMethodGoogle, #btnMethodPhone, #btnMethodUser').forEach(b => {
-        b.classList.remove('active');
-        b.style.background = '#0e121a';
-        b.style.color = 'var(--text-muted)';
+    function openLegalSection(docKey) {
+      switchTab('lgpd');
+      loadLegalDocs().then(() => {
+        const pills = document.querySelectorAll('.legal-pill');
+        pills.forEach(p => p.classList.remove('active'));
+        const mapIdx = { privacy_policy: 0, terms_of_use: 1, refund_policy: 2, cookie_policy: 3, third_parties: 4, brazilian_laws: 5 };
+        const btn = pills[mapIdx[docKey] || 0];
+        if (btn) btn.classList.add('active');
+        renderLegalDoc(docKey);
       });
-
-      const activeBox = document.getElementById(`method-${method}`);
-      if (activeBox) activeBox.style.display = 'block';
-
-      const cap = method.charAt(0).toUpperCase() + method.slice(1);
-      const activeBtn = document.getElementById(`btnMethod${cap}`);
-      if (activeBtn) {
-        activeBtn.classList.add('active');
-        activeBtn.style.background = 'var(--surface)';
-        activeBtn.style.color = '#fff';
-      }
     }
 
-    async function openTikTokBrowserLogin() {
-      const statusDiv = document.getElementById('browserLoginStatusText');
-      if (statusDiv) statusDiv.innerHTML = "⏳ Abrindo janela do Chrome... Faça login e feche a janela ao terminar.";
-      showToast("🌐 Abrindo janela do Chrome para login no TikTok...");
-      try {
-        const res = await fetch('/api/tiktok/open-browser', { method: 'POST' });
-        const data = await res.json();
-        showToast("👉 Faça login na janela do navegador que se abriu!");
-
-        // Faz polling para atualizar o status assim que o usuário logar
-        let checks = 0;
-        const checkInterval = setInterval(async () => {
-          checks++;
-          const bRes = await fetch('/api/tiktok/browser-status');
-          const bData = await bRes.json();
-          if (bData.browser_logged_in) {
-            clearInterval(checkInterval);
-            if (statusDiv) statusDiv.innerHTML = "✅ <b>Conectado com Sucesso!</b> Sessão salva permanentemente.";
-            showToast("🎉 Conta do TikTok conectada com sucesso!");
-            checkTikTokStatus();
-          }
-          if (checks > 40) clearInterval(checkInterval); // para após ~2 min
-        }, 3000);
-      } catch (e) {
-        showToast("⚠️ Erro ao abrir navegador.");
-      }
-    }
-
-    async function connectTikTokGoogle() {
-      const email = document.getElementById('ttGoogleEmail').value.trim();
-      if (!email || !email.includes('@')) {
-        return showToast("⚠️ Digite um e-mail Google válido!");
-      }
-
-      try {
-        const res = await fetch('/api/tiktok/login-google', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ google_email: email })
-        });
-        const data = await res.json();
-        if (res.ok) {
-          showToast("🎉 " + data.message);
-          checkTikTokStatus();
-        } else {
-          showToast("❌ " + (data.detail || "Erro ao conectar conta Google."));
+    async function loadLegalDocs() {
+      if (cachedLegalDocs) {
+        if (document.getElementById('legalDocViewer').innerText.includes('Carregando')) {
+          renderLegalDoc('privacy_policy');
         }
+        return cachedLegalDocs;
+      }
+      try {
+        const res = await fetch('/api/legal/documents');
+        cachedLegalDocs = await res.json();
+        const c = cachedLegalDocs.company;
+        document.getElementById('footerCompanyInfo').innerHTML =
+          `Controlador: <strong>${escapeHtml(c.company_name)}</strong> · CNPJ: ${escapeHtml(c.cnpj)} · DPO: ${escapeHtml(c.dpo_email)}`;
+        renderLegalDoc('privacy_policy');
+        return cachedLegalDocs;
       } catch (e) {
-        showToast("Erro ao conectar conta Google.");
+        document.getElementById('legalDocViewer').innerText = 'Erro ao carregar documentos legais.';
       }
     }
 
-    async function connectTikTokPhone() {
-      const phone = document.getElementById('ttPhone').value.trim();
-      const pwd = document.getElementById('ttPhonePassword').value.trim();
+    function showLegalDoc(docKey, btnEl) {
+      document.querySelectorAll('.legal-pill').forEach(b => b.classList.remove('active'));
+      if (btnEl) btnEl.classList.add('active');
+      renderLegalDoc(docKey);
+    }
 
-      if (!phone) {
-        return showToast("⚠️ Digite o número de telefone com DDD!");
-      }
+    function renderLegalDoc(docKey) {
+      const box = document.getElementById('legalDocViewer');
+      if (!cachedLegalDocs) return;
 
-      try {
-        const res = await fetch('/api/tiktok/login-phone', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone: phone, password: pwd })
+      if (docKey === 'privacy_policy' || docKey === 'terms_of_use' || docKey === 'refund_policy') {
+        const doc = cachedLegalDocs[docKey];
+        let html = `<h3>${escapeHtml(doc.title)}</h3><p><em>Última atualização: ${escapeHtml(doc.updated_at)}</em></p>`;
+        doc.sections.forEach(s => {
+          html += `<h4>${escapeHtml(s.heading)}</h4><p>${escapeHtml(s.body)}</p>`;
         });
-        const data = await res.json();
-        if (res.ok) {
-          showToast("🎉 " + data.message);
-          checkTikTokStatus();
-        } else {
-          showToast("❌ " + (data.detail || "Erro ao conectar telefone."));
-        }
-      } catch (e) {
-        showToast("Erro ao conectar telefone.");
-      }
-    }
-
-    async function connectTikTokUserPassword() {
-      const username = document.getElementById('ttUsername').value.trim();
-      const password = document.getElementById('ttPassword').value.trim();
-
-      if (!username || !password) {
-        return showToast("⚠️ Digite seu usuário e senha do TikTok!");
-      }
-
-      try {
-        const res = await fetch('/api/tiktok/login-user', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password })
+        box.innerHTML = html;
+      } else if (docKey === 'cookie_policy') {
+        const doc = cachedLegalDocs.cookie_policy;
+        let html = `<h3>${escapeHtml(doc.title)}</h3><p><em>Última atualização: ${escapeHtml(doc.updated_at)}</em></p>`;
+        doc.categories.forEach(cat => {
+          html += `<h4>${escapeHtml(cat.name)}</h4><p>${escapeHtml(cat.description)}</p>`;
+          html += `<ul style="margin-left:18px; margin-bottom:10px; color:#cbd5e1;">` +
+            cat.items.map(i => `<li>${escapeHtml(i)}</li>`).join('') + `</ul>`;
         });
-        const data = await res.json();
-        if (res.ok) {
-          showToast("🎉 " + data.message);
-          document.getElementById('ttPassword').value = "";
-          checkTikTokStatus();
-        } else {
-          showToast("❌ " + (data.detail || "Erro ao conectar conta."));
-        }
-      } catch (e) {
-        showToast("Erro ao conectar conta.");
+        box.innerHTML = html;
+      } else if (docKey === 'third_parties') {
+        const a = cachedLegalDocs.audit;
+        let html = `<h3>Auditoria de Rastreamento e Integrações de Terceiros</h3>`;
+        html += `<p><strong>Google Analytics:</strong> Não utilizado · <strong>Scripts de rastreamento:</strong> ${a.tracking_scripts_count} · <strong>CDNs externos de fontes/QR:</strong> Removidos · <strong>Criptografia local:</strong> ${escapeHtml(a.encryption_at_rest)}.</p>`;
+        html += `<h4>Integrações estritamente necessárias sob seu comando:</h4>`;
+        a.necessary_integrations.forEach(it => {
+          html += `<p><strong>${escapeHtml(it.name)}</strong> (${it.optional ? 'Opcional' : 'Necessária'}): ${escapeHtml(it.purpose)} <em>Dados enviados: ${escapeHtml(it.data_sent)}</em></p>`;
+        });
+        box.innerHTML = html;
+      } else if (docKey === 'brazilian_laws') {
+        const c = cachedLegalDocs.company;
+        let html = `<h3>Dados Legais da Empresa / Controlador</h3>`;
+        html += `<p><strong>Razão Social / Responsável:</strong> ${escapeHtml(c.company_name)}<br/>` +
+          `<strong>CNPJ:</strong> ${escapeHtml(c.cnpj)}<br/>` +
+          `<strong>Endereço:</strong> ${escapeHtml(c.address)}<br/>` +
+          `<strong>Encarregado de Dados (DPO):</strong> ${escapeHtml(c.dpo_name)} (${escapeHtml(c.dpo_email)})<br/>` +
+          `<strong>Foro:</strong> ${escapeHtml(c.forum_city)}<br/>` +
+          `<strong>Operação:</strong> ${escapeHtml(c.operation_mode)}</p>`;
+        html += `<h3>Leis Brasileiras Aplicáveis</h3>`;
+        cachedLegalDocs.brazilian_laws.forEach(l => {
+          html += `<h4>${escapeHtml(l.law)}</h4><p>${escapeHtml(l.scope)}</p>`;
+        });
+        box.innerHTML = html;
       }
     }
 
-    async function checkTikTokStatus() {
+    async function checkCookieConsent() {
       try {
-        const res = await fetch('/api/tiktok/status');
+        const res = await fetch('/api/lgpd/consent');
         const data = await res.json();
-        const bar = document.getElementById('tiktokStatusBar');
-        const text = document.getElementById('tiktokStatusText');
-        const btn = document.getElementById('tiktokActionBtn');
-
-        if (data.connected) {
-          bar.classList.add('connected');
-          text.innerHTML = `🟢 <b>TikTok Conectado:</b> @${data.username}`;
-          btn.innerText = "Desconectar";
-          btn.onclick = disconnectTikTok;
-          btn.style.background = "rgba(239, 68, 68, 0.2)";
-          btn.style.color = "#ef4444";
-        } else {
-          bar.classList.remove('connected');
-          text.innerHTML = `⚪ <b>TikTok Desconectado:</b> Login necessário para auto-post`;
-          btn.innerText = "Conectar";
-          btn.onclick = () => switchTab('config');
-          btn.style.background = "";
-          btn.style.color = "";
+        document.getElementById('ckPreferences').checked = !!data.preferences;
+        if (!data.decided) {
+          document.getElementById('cookieBanner').style.display = 'block';
         }
       } catch (e) {}
     }
 
-    async function connectTikTokSession() {
-      const sid = document.getElementById('tiktokSessionId').value.trim();
-      if (!sid) return showToast("Cole o sessionid do TikTok!");
-
+    async function saveCookieChoice(preferences) {
       try {
-        const res = await fetch('/api/tiktok/login', {
+        await fetch('/api/lgpd/consent', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ session_id: sid })
+          body: JSON.stringify({ preferences: !!preferences })
         });
-        const data = await res.json();
-        if (res.ok) {
-          showToast("🎉 " + data.message);
-          document.getElementById('tiktokSessionId').value = "";
-          checkTikTokStatus();
-        } else {
-          showToast("❌ " + (data.detail || "Erro ao conectar"));
-        }
+        document.getElementById('ckPreferences').checked = !!preferences;
+        document.getElementById('cookieBanner').style.display = 'none';
+        closeCookieModal();
+        showToast('✅ Preferências de privacidade e cookies salvas!');
       } catch (e) {
-        showToast("Erro ao conectar conta.");
+        showToast('⚠️ Erro ao salvar preferências de cookies.');
       }
     }
 
-    async function connectTikTokToken() {
-      const token = document.getElementById('cfgTikTokToken').value.trim();
-      if (!token) return showToast("Cole o token da API!");
+    function openCookieModal() {
+      document.getElementById('cookieModal').style.display = 'flex';
+    }
 
+    function closeCookieModal() {
+      document.getElementById('cookieModal').style.display = 'none';
+    }
+
+    async function deleteAllUserData() {
+      const ok = confirm(
+        'ATENÇÃO (LGPD Art. 18, VI): Isso excluirá permanentemente sua sessão do TikTok, cookies do navegador, histórico de cortes, vídeos gerados, arquivos temporários e logs em memória. Deseja continuar?'
+      );
+      if (!ok) return;
       try {
-        const res = await fetch('/api/tiktok/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ access_token: token })
-        });
+        const res = await fetch('/api/lgpd/delete-all-data', { method: 'POST' });
         const data = await res.json();
-        if (res.ok) {
-          showToast("🎉 " + data.message);
+        if (res.ok && data.success) {
+          showToast('🗑️ Todos os dados locais foram excluídos permanentemente.');
           checkTikTokStatus();
-        } else {
-          showToast("❌ " + data.detail);
+          document.getElementById('clipsFeed').innerHTML =
+            '<div style="grid-column:1/-1; padding:36px; text-align:center; color:var(--text-muted); background:var(--surface); border-radius:16px; border:1px dashed var(--surface-border);">Todos os dados e vídeos locais foram excluídos conforme a LGPD.</div>';
+          document.getElementById('historyList').innerHTML = '<div style="color:var(--text-muted);">Nenhum histórico armazenado.</div>';
+          document.getElementById('lgpdFormResult').innerText =
+            `Eliminação concluída em ${data.deleted_at}. Itens removidos: ${(data.removed_items || []).join(', ') || 'nenhum arquivo pendente'}.`;
         }
       } catch (e) {
-        showToast("Erro ao salvar token.");
+        showToast('❌ Erro ao excluir dados.');
       }
     }
 
-    async function disconnectTikTok() {
-      if (!confirm("Deseja realmente desconectar a conta do TikTok?")) return;
-      try {
-        await fetch('/api/tiktok/logout', { method: 'POST' });
-        showToast("Conta desconectada.");
-        checkTikTokStatus();
-      } catch (e) {}
-    }
+    async function submitLgpdForm(event) {
+      event.preventDefault();
+      const request_type = document.getElementById('lgpdReqType').value;
+      const contact_email = document.getElementById('lgpdContactEmail').value.trim();
+      const details = document.getElementById('lgpdDetails').value.trim();
 
-    async function pasteClipboard() {
       try {
-        const text = await navigator.clipboard.readText();
-        if (text) {
-          document.getElementById('youtubeUrl').value = text;
-          showToast("Link colado!");
+        const res = await fetch('/api/lgpd/request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ request_type, contact_email, details })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          document.getElementById('lgpdFormResult').innerText =
+            `✅ Solicitação registrada sob o protocolo ${data.protocol}.`;
+          document.getElementById('lgpdDetails').value = '';
+          showToast(`✅ Protocolo LGPD gerado: ${data.protocol}`);
+        } else {
+          showToast('❌ ' + (data.detail || 'Erro ao registrar solicitação.'));
         }
-      } catch (err) {
-        showToast("Cole o link manualmente no campo.");
+      } catch (e) {
+        showToast('❌ Erro de conexão ao enviar formulário LGPD.');
       }
     }
 
@@ -1038,9 +1362,123 @@
       }
     }
 
+    async function openTikTokBrowserLogin() {
+      const statusDiv = document.getElementById('browserLoginStatusText');
+      if (statusDiv) statusDiv.innerText = 'Abrindo janela do Chrome... Faça login e feche a janela ao terminar.';
+      showToast('Abrindo janela do Chrome para login no TikTok...');
+      try {
+        await fetch('/api/tiktok/open-browser', { method: 'POST' });
+        let checks = 0;
+        const checkInterval = setInterval(async () => {
+          checks++;
+          const bRes = await fetch('/api/tiktok/browser-status');
+          const bData = await bRes.json();
+          if (bData.browser_logged_in) {
+            clearInterval(checkInterval);
+            if (statusDiv) statusDiv.innerText = 'Conectado com sucesso! Sessão salva localmente.';
+            showToast('Conta do TikTok conectada com sucesso!');
+            checkTikTokStatus();
+          }
+          if (checks > 40) clearInterval(checkInterval);
+        }, 3000);
+      } catch (e) {
+        showToast('Erro ao abrir navegador.');
+      }
+    }
+
+    async function connectTikTokSession() {
+      const sid = document.getElementById('tiktokSessionId').value.trim();
+      if (!sid) return showToast('Informe o cookie Session ID.');
+      try {
+        const res = await fetch('/api/tiktok/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: sid })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast(data.message);
+          document.getElementById('tiktokSessionId').value = '';
+          checkTikTokStatus();
+        } else {
+          showToast(data.detail || 'Session ID inválido.');
+        }
+      } catch (e) {
+        showToast('Erro ao salvar Session ID.');
+      }
+    }
+
+    async function connectTikTokToken() {
+      const token = document.getElementById('cfgTikTokToken').value.trim();
+      if (!token) return showToast('Informe o Token de API.');
+      try {
+        const res = await fetch('/api/tiktok/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ access_token: token })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast(data.message);
+          document.getElementById('cfgTikTokToken').value = '';
+          checkTikTokStatus();
+        } else {
+          showToast(data.detail || 'Token inválido.');
+        }
+      } catch (e) {
+        showToast('Erro ao salvar Token.');
+      }
+    }
+
+    async function disconnectTikTok() {
+      try {
+        await fetch('/api/tiktok/logout', { method: 'POST' });
+        showToast('Conta do TikTok desconectada.');
+        checkTikTokStatus();
+      } catch (e) {}
+    }
+
+    async function checkTikTokStatus() {
+      try {
+        const res = await fetch('/api/tiktok/status');
+        const data = await res.json();
+        const bar = document.getElementById('tiktokStatusBar');
+        const txt = document.getElementById('tiktokStatusText');
+        const btn = document.getElementById('tiktokActionBtn');
+
+        if (data.connected) {
+          bar.classList.add('connected');
+          txt.innerHTML = `✅ TikTok conectado (<strong>${escapeHtml(data.username)}</strong>)`;
+          btn.innerText = 'Desconectar';
+          btn.onclick = disconnectTikTok;
+        } else {
+          bar.classList.remove('connected');
+          txt.innerText = '⚪ Conta do TikTok não conectada (cortes ficarão disponíveis para download)';
+          btn.innerText = 'Conectar';
+          btn.onclick = () => switchTab('config');
+        }
+      } catch (e) {}
+    }
+
+    async function pasteClipboard() {
+      try {
+        const text = await navigator.clipboard.readText();
+        document.getElementById('youtubeUrl').value = text;
+        showToast('Link colado!');
+      } catch (err) {
+        showToast('Cole o link manualmente no campo.');
+      }
+    }
+
     async function startCutProcess() {
       const url = document.getElementById('youtubeUrl').value.trim();
-      if (!url) return showToast("⚠️ Cole uma URL válida do YouTube!");
+      if (!url) return showToast('Informe uma URL válida do YouTube.');
+
+      const copyright_confirmed = document.getElementById('copyrightCheck').checked;
+      if (!copyright_confirmed) {
+        document.getElementById('copyrightCheck').focus();
+        return showToast('Marque a declaração de Direitos Autorais antes de prosseguir.');
+      }
 
       const selVal = document.getElementById('clipsCount').value;
       let clips = 0;
@@ -1050,14 +1488,16 @@
       } else {
         clips = parseInt(selVal);
       }
+
       const layout = document.getElementById('layout').value;
       const subtitles = document.getElementById('subtitlesToggle').checked;
       const auto_post = document.getElementById('autopostToggle').checked;
-      const delete_after = document.getElementById('deleteAfterToggle') ? document.getElementById('deleteAfterToggle').checked : true;
+      const delete_after = document.getElementById('deleteAfterToggle').checked;
 
       const btn = document.getElementById('startBtn');
       const card = document.getElementById('progressCard');
       const bar = document.getElementById('pBar');
+      const barRole = document.getElementById('pBarRole');
       const pPercent = document.getElementById('pPercent');
       const pStatus = document.getElementById('pStatus');
       const pMsg = document.getElementById('pMsg');
@@ -1069,13 +1509,13 @@
         const res = await fetch('/api/jobs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url, clips, layout, subtitles, auto_post, delete_after })
+          body: JSON.stringify({ url, clips, layout, subtitles, auto_post, delete_after, copyright_confirmed })
         });
         const data = await res.json();
         if (!res.ok) {
           btn.disabled = false;
           card.style.display = 'none';
-          return showToast("❌ " + (data.detail || "Requisição recusada."));
+          return showToast(data.detail || 'Requisição recusada.');
         }
         const jobId = data.job_id;
 
@@ -1084,6 +1524,7 @@
           const job = await sRes.json();
 
           bar.style.width = job.progress + '%';
+          barRole.setAttribute('aria-valuenow', String(job.progress));
           pPercent.innerText = job.progress + '%';
           pStatus.innerText = job.status.toUpperCase();
           pMsg.innerText = job.message;
@@ -1092,27 +1533,18 @@
             clearInterval(interval);
             btn.disabled = false;
             renderClips(job.results);
-            showToast("🎉 Clipes gerados com sucesso!");
+            showToast('Processamento concluído!');
           } else if (job.status === 'failed') {
             clearInterval(interval);
             btn.disabled = false;
-            showToast("❌ Erro: " + job.message);
+            showToast('Erro: ' + job.message);
           }
         }, 2000);
 
       } catch (err) {
         btn.disabled = false;
-        showToast("Erro ao conectar ao servidor!");
+        showToast('Erro ao conectar ao servidor local.');
       }
-    }
-
-    function escapeHtml(str) {
-      return String(str || '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
     }
 
     function renderClips(results) {
@@ -1126,14 +1558,14 @@
         const isFailed = st && !st.success;
         const fileExists = c.file_exists !== false && !(st && st.local_file_deleted);
 
-        let badge = '<span class="status-badge queue">💾 Salvo p/ Download</span>';
+        let badge = '<span class="status-badge queue">Salvo p/ Download</span>';
         let errorBox = '';
         if (isPublished) {
-          badge = '<span class="status-badge published">✅ TikTok Postado</span>';
+          badge = '<span class="status-badge published">TikTok Postado</span>';
         } else if (isFailed) {
-          badge = '<span class="status-badge" style="background:rgba(239,68,68,0.18); color:#f87171; border:1px solid rgba(239,68,68,0.4);">⚠️ Não Postado</span>';
+          badge = '<span class="status-badge" style="background:rgba(239,68,68,0.2); color:#fecaca; border:1px solid #ef4444;">Não Postado</span>';
           if (st.error) {
-            errorBox = `<div style="font-size:0.78rem; color:#fca5a5; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); border-radius:8px; padding:8px; margin-top:6px;">${escapeHtml(st.error)}</div>`;
+            errorBox = `<div style="font-size:0.82rem; color:#fecaca; background:rgba(127,29,29,0.5); border:1px solid #ef4444; border-radius:8px; padding:8px; margin-top:6px;">${escapeHtml(st.error)}</div>`;
           }
         }
 
@@ -1146,14 +1578,14 @@
 
         const videoBlock = fileExists
           ? `<div class="video-wrap">
-               <video controls playsinline preload="metadata" poster="${safeThumbUrl}">
+               <video controls playsinline preload="metadata" poster="${safeThumbUrl}" aria-label="Prévia do corte: ${safeTitle}">
                  <source src="${safeVideoUrl}" type="video/mp4" />
                </video>
              </div>`
           : `<div class="video-wrap" style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; text-align:center; background:#0b0d11; min-height:200px;">
-               <div style="font-size:2.4rem; margin-bottom:8px;">${isPublished ? '🎉' : '🗑️'}</div>
-               <div style="font-weight:700; font-size:0.9rem; color:#e2e8f0;">${isPublished ? 'Publicado no TikTok' : 'Arquivo local removido'}</div>
-               <div style="font-size:0.78rem; color:#94a3b8; margin-top:4px;">O arquivo .mp4 foi apagado do disco conforme configurado.</div>
+               <div style="font-size:2rem; margin-bottom:8px;" aria-hidden="true">${isPublished ? '✅' : '🗑️'}</div>
+               <div style="font-weight:700; font-size:0.95rem; color:#ffffff;">${isPublished ? 'Publicado no TikTok' : 'Arquivo local removido'}</div>
+               <div style="font-size:0.82rem; color:var(--text-muted); margin-top:4px;">O arquivo .mp4 foi apagado do disco conforme configurado.</div>
              </div>`;
 
         const downloadBtn = fileExists
@@ -1165,25 +1597,25 @@
         const vidId = c.video_id || (c.video_url ? c.video_url.split('/')[3] : '');
         const fname = c.filename || (c.video_url ? c.video_url.split('/')[4] : '');
         const postBtn = (fileExists && !isPublished && vidId && fname)
-          ? `<button class="action-btn" id="postBtn_${idx}" style="background:rgba(255,0,80,0.18); color:#ff4d79; border:1px solid rgba(255,0,80,0.4);" onclick='publishClipNow(${idx}, ${JSON.stringify(vidId)}, ${JSON.stringify(fname)}, ${JSON.stringify(c.title || '')}, ${JSON.stringify(c.hashtags || [])})'>
+          ? `<button type="button" class="action-btn" id="postBtn_${idx}" style="background:#9f1239; color:#ffffff; border:1px solid #fb7185;" onclick='publishClipNow(${idx}, ${JSON.stringify(vidId)}, ${JSON.stringify(fname)}, ${JSON.stringify(c.title || '')}, ${JSON.stringify(c.hashtags || [])})'>
                📲 Postar no TikTok
              </button>`
           : '';
 
-        const div = document.createElement('div');
+        const div = document.createElement('article');
         div.className = 'clip-card';
         div.innerHTML = `
           ${videoBlock}
           <div class="clip-meta">
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
-              <span class="hook-tag">🎯 Gancho (${safeDuration}s)</span>
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; flex-wrap:wrap;">
+              <span class="hook-tag">Trecho (${safeDuration}s)</span>
               ${badge}
             </div>
-            <div class="clip-heading">${safeTitle}</div>
+            <h3 class="clip-heading">${safeTitle}</h3>
             <div class="clip-hashtags">${safeHashtags}</div>
             ${errorBox}
-            <div class="btn-group" style="flex-wrap:wrap;">
-              <button class="action-btn copy-btn" onclick="copyMeta('${escapeJs(c.title)}', '${escapeJs((c.hashtags || []).join(' '))}')">
+            <div class="btn-group">
+              <button type="button" class="action-btn copy-btn" onclick="copyMeta('${escapeJs(c.title)}', '${escapeJs((c.hashtags || []).join(' '))}')">
                 📋 Copiar Texto
               </button>
               ${downloadBtn}
@@ -1199,11 +1631,11 @@
       const btn = document.getElementById(`postBtn_${idx}`);
       if (btn) {
         btn.disabled = true;
-        btn.innerText = '⏳ Postando...';
+        btn.innerText = 'Postando...';
       }
-      showToast('📲 Enviando clipe para o TikTok Studio...');
+      showToast('Enviando clipe para o TikTok Studio...');
       try {
-        const deleteAfter = document.getElementById('deleteAfterToggle') ? document.getElementById('deleteAfterToggle').checked : false;
+        const deleteAfter = document.getElementById('deleteAfterToggle').checked;
         const res = await fetch('/api/clips/publish', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1211,31 +1643,27 @@
         });
         const data = await res.json();
         if (res.ok && data.success) {
-          showToast('🎉 Clipe publicado com sucesso no TikTok!');
-          if (btn) btn.innerText = '✅ Postado!';
+          showToast('Clipe publicado com sucesso no TikTok!');
+          if (btn) btn.innerText = 'Postado!';
         } else {
-          showToast('⚠️ ' + (data.error || data.detail || 'Falha ao publicar no TikTok.'));
+          showToast(data.error || data.detail || 'Não foi possível publicar no TikTok.');
           if (btn) {
             btn.disabled = false;
-            btn.innerText = '📲 Tentar Novamente';
+            btn.innerText = 'Tentar Novamente';
           }
         }
       } catch (e) {
-        showToast('❌ Erro de conexão ao publicar.');
+        showToast('Erro de conexão ao publicar.');
         if (btn) {
           btn.disabled = false;
-          btn.innerText = '📲 Tentar Novamente';
+          btn.innerText = 'Tentar Novamente';
         }
       }
     }
 
     function copyMeta(title, tags) {
       navigator.clipboard.writeText(`${title}\n\n${tags}`);
-      showToast("✅ Título e hashtags copiados!");
-    }
-
-    function escapeJs(str) {
-      return (str || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+      showToast('Título e hashtags copiados!');
     }
 
     async function fetchLogs() {
@@ -1243,7 +1671,7 @@
         const res = await fetch('/api/logs');
         const logs = await res.json();
         const term = document.getElementById('terminalOutput');
-        term.innerText = logs.length > 0 ? logs.join('\n') : "Nenhum log registrado ainda.";
+        term.innerText = logs.length > 0 ? logs.join('\n') : 'Nenhum log registrado ainda.';
         term.scrollTop = term.scrollHeight;
       } catch (e) {}
     }
@@ -1256,18 +1684,17 @@
     }, 3000);
 
     async function shutdownServer() {
-      if (!confirm("⚠️ Tem certeza que deseja DESLIGAR o servidor do Clip Farm?")) return;
+      if (!confirm('Tem certeza que deseja desligar o servidor local do Clip Farm?')) return;
       try {
         await fetch('/api/shutdown', { method: 'POST' });
         document.body.innerHTML = `
-          <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; text-align:center; padding:20px;">
-            <div style="font-size:3rem; margin-bottom:16px;">🛑</div>
-            <h1 style="color:#ef4444; margin-bottom:10px;">Servidor Desligado</h1>
-            <p style="color:#94a3b8; font-size:1.1rem; max-width:480px;">O servidor foi encerrado com sucesso. Você já pode fechar esta aba com segurança.</p>
-          </div>
+          <main style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; text-align:center; padding:20px;">
+            <h1 style="color:#f87171; margin-bottom:10px;">Servidor Desligado</h1>
+            <p style="color:#cbd5e1; font-size:1.05rem; max-width:480px;">O servidor local foi encerrado com segurança. Você já pode fechar esta aba.</p>
+          </main>
         `;
       } catch (e) {
-        showToast("Servidor finalizado.");
+        showToast('Servidor finalizado.');
       }
     }
 
@@ -1277,7 +1704,7 @@
         const data = await res.json();
         if (data.privacy) document.getElementById('cfgPrivacy').value = data.privacy;
         if (data.whisper_model) document.getElementById('cfgWhisper').value = data.whisper_model;
-        if (data.has_gemini_key) document.getElementById('cfgGeminiKey').placeholder = "•••••••••••••••• (Chave Salva)";
+        if (data.has_gemini_key) document.getElementById('cfgGeminiKey').placeholder = 'Chave salva (digite apenas para substituir)';
       } catch (e) {}
     }
 
@@ -1294,9 +1721,9 @@
           body: JSON.stringify({ gemini_key, tiktok_token, privacy, whisper_model })
         });
         const data = await res.json();
-        showToast(data.message);
+        showToast(data.message || data.detail);
       } catch (e) {
-        showToast("Erro ao salvar configurações.");
+        showToast('Erro ao salvar configurações.');
       }
     }
 
@@ -1318,20 +1745,19 @@
           box.style.borderRadius = '10px';
           box.style.border = '1px solid var(--surface-border)';
           box.innerHTML = `
-            <div style="font-weight:700; font-size:0.9rem;">ID: ${item.video_id}</div>
-            <div style="font-size:0.8rem; color:var(--text-muted); margin:4px 0;">Total de cortes: ${item.clips_count}</div>
-            <button class="action-btn copy-btn" style="width:100%; margin-top:8px;" onclick='renderClips(${JSON.stringify(item.clips)})'>
-              👁️ Ver Estes Cortes
+            <div style="font-weight:700; font-size:0.92rem; color:#ffffff;">ID: ${escapeHtml(item.video_id)}</div>
+            <div style="font-size:0.84rem; color:var(--text-muted); margin:4px 0;">Total de cortes: ${escapeHtml(item.clips_count)}</div>
+            <button type="button" class="action-btn copy-btn" style="width:100%; margin-top:8px;">
+              Ver Estes Cortes
             </button>
           `;
+          box.querySelector('button').addEventListener('click', () => renderClips(item.clips));
           hist.appendChild(box);
         });
       } catch (e) {
         hist.innerHTML = 'Erro ao carregar histórico.';
       }
     }
-
-    let cachedMobileUrl = "";
 
     async function loadNetworkInfo() {
       try {
@@ -1340,16 +1766,8 @@
         cachedMobileUrl = data.mobile_url;
         document.getElementById('mobileUrlDisplay').innerText = cachedMobileUrl;
         document.getElementById('footerMobileUrl').innerText = cachedMobileUrl;
-
-        // Atualiza botão do WhatsApp com o link gerado
-        const waText = encodeURIComponent(`🎬 Acesse o Clip Farm pelo celular: ${cachedMobileUrl}`);
-        document.getElementById('whatsappShareBtn').href = `https://api.whatsapp.com/send?text=${waText}`;
-        
-        // Gera o QR Code com API rápida de SVG/PNG
-        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(cachedMobileUrl)}`;
-        document.getElementById('qrCodeImg').src = qrUrl;
       } catch (e) {
-        document.getElementById('mobileUrlDisplay').innerText = "Erro ao obter IP";
+        document.getElementById('mobileUrlDisplay').innerText = 'Erro ao obter IP local';
       }
     }
 
@@ -1365,13 +1783,23 @@
     function copyMobileUrl() {
       if (cachedMobileUrl) {
         navigator.clipboard.writeText(cachedMobileUrl);
-        showToast("✅ Link copiado!");
+        showToast('Link copiado!');
       }
     }
+
+    // Fechamento de modais pela tecla Escape (WCAG 2.1.2 / Teclado)
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeMobileModal();
+        closeCookieModal();
+      }
+    });
 
     window.addEventListener('load', async () => {
       loadNetworkInfo();
       checkTikTokStatus();
+      loadLegalDocs();
+      checkCookieConsent();
       try {
         const res = await fetch('/api/history');
         const history = await res.json();

@@ -19,6 +19,8 @@ storage/temp/
 storage/output/
 storage/chrome_profile/
 storage/.tiktok_session.json
+storage/.lgpd_consent.json
+storage/.lgpd_requests.json
 storage/debug_*.png
 
 # Executaveis locais pesados

@@ -21,11 +21,12 @@ from typing import Dict, Any, List
 from collections import deque
 
 from fastapi import FastAPI, BackgroundTasks, HTTPException, Request
-from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
+from fastapi.responses import HTMLResponse, FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+import io
 from config import (
     OUTPUT_DIR, TEMP_DIR, MAX_CLIPS, DEFAULT_LAYOUT, ENABLE_SUBTITLES, AUTO_POST,
     BASE_DIR, GEMINI_API_KEY, TIKTOK_ACCESS_TOKEN, TIKTOK_PRIVACY_LEVEL, WHISPER_MODEL,
@@ -35,6 +36,10 @@ from security import (
     redact_sensitive, safe_media_path, validate_youtube_url, sanitize_env_value,
     validate_layout, validate_privacy, validate_whisper_model,
     is_private_or_local_ip, is_allowed_origin, RateLimiter, SECURITY_HEADERS
+)
+from legal_compliance import (
+    get_legal_documents, get_cookie_consent, save_cookie_consent,
+    submit_lgpd_request, export_user_data, delete_all_user_data
 )
 from downloader import download_youtube_video
 from audio_analyzer import detect_audio_spikes
@@ -121,7 +126,7 @@ async def security_middleware(request: Request, call_next):
 
     # 3. Rate Limiting por IP (Anti-Flood / Anti-Brute-Force)
     path = request.url.path
-    is_sensitive = path.startswith(("/api/tiktok/", "/api/config", "/api/shutdown", "/api/jobs", "/api/clips/"))
+    is_sensitive = path.startswith(("/api/tiktok/", "/api/config", "/api/shutdown", "/api/jobs", "/api/clips/", "/api/lgpd/"))
     if is_sensitive and request.method == "POST":
         if not _RATE_LIMITER.allow(f"strict:{client_ip}", max_requests=20, window_seconds=60):
             log_event(f"🛡️ [RATE LIMIT] Excesso de requisições sensíveis de {client_ip} em {path}")
@@ -148,6 +153,7 @@ class JobRequest(BaseModel):
     subtitles: bool = ENABLE_SUBTITLES
     auto_post: bool = AUTO_POST
     delete_after: bool = True  # Não guarda os vídeos no disco: apaga após postar
+    copyright_confirmed: bool = True  # Declaração de direitos autorais (Lei nº 9.610/1998)
 
 class ConfigUpdate(BaseModel):
     gemini_key: str = ""
@@ -343,6 +349,11 @@ def run_job_pipeline(job_id: str, req: JobRequest):
 
 @app.post("/api/jobs")
 def create_job(req: JobRequest, background_tasks: BackgroundTasks):
+    if not req.copyright_confirmed:
+        raise HTTPException(
+            status_code=400,
+            detail="Confirme que possui os direitos autorais ou autorização de uso do vídeo (Lei nº 9.610/1998)."
+        )
     try:
         req.url = validate_youtube_url(req.url)
     except ValueError as e:
@@ -696,6 +707,90 @@ def serve_media(video_id: str, filename: str, download: int = 0):
             headers={"Content-Disposition": f'attachment; filename="{safe_dl_name}"'}
         )
     return FileResponse(file_path, media_type=media_type)
+
+@app.get("/api/qr")
+def local_qr_code():
+    """Gera o QR Code de acesso mobile 100% localmente em SVG (sem enviar IP a servidores externos)."""
+    ip = get_local_ip()
+    mobile_url = f"http://{ip}:{SERVER_PORT}"
+    try:
+        import segno
+        qr = segno.make(mobile_url, error="m")
+        buf = io.BytesIO()
+        qr.save(buf, kind="svg", scale=5, border=2, dark="#0b0d11", light="#ffffff")
+        return Response(content=buf.getvalue(), media_type="image/svg+xml")
+    except Exception:
+        fallback_svg = (
+            '<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180">'
+            '<rect width="100%" height="100%" fill="#ffffff"/>'
+            '<text x="50%" y="50%" text-anchor="middle" fill="#0b0d11" font-size="12">Use o link abaixo</text>'
+            '</svg>'
+        )
+        return Response(content=fallback_svg, media_type="image/svg+xml")
+
+
+class CookieConsentRequest(BaseModel):
+    preferences: bool = False
+
+
+class LgpdFormRequest(BaseModel):
+    request_type: str = "duvida"
+    contact_email: str = ""
+    details: str = ""
+
+
+@app.get("/api/legal/documents")
+def legal_documents():
+    """Retorna Política de Privacidade, Termos de Uso, Política de Reembolso, Cookies, Leis Brasileiras e Dados Legais."""
+    return get_legal_documents()
+
+
+@app.get("/api/lgpd/consent")
+def lgpd_get_consent():
+    return get_cookie_consent()
+
+
+@app.post("/api/lgpd/consent")
+def lgpd_save_consent(req: CookieConsentRequest):
+    rec = save_cookie_consent(preferences=req.preferences)
+    log_event(f"⚖️ Preferências de cookies/LGPD atualizadas (preferências opcionais: {rec['preferences']}).")
+    return rec
+
+
+@app.get("/api/lgpd/export-data")
+def lgpd_export_data():
+    """Art. 18, II e V da LGPD — Exportação / Portabilidade dos dados do titular em JSON."""
+    payload = export_user_data()
+    raw = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
+    return Response(
+        content=raw,
+        media_type="application/json",
+        headers={"Content-Disposition": 'attachment; filename="meus_dados_lgpd_clip_farm.json"'}
+    )
+
+
+@app.post("/api/lgpd/delete-all-data")
+def lgpd_delete_all():
+    """Art. 18, VI da LGPD — Exclusão definitiva de sessões, cookies, vídeos, histórico e logs locais."""
+    res = delete_all_user_data(system_logs_deque=SYSTEM_LOGS)
+    JOBS.clear()
+    return res
+
+
+@app.post("/api/lgpd/request")
+def lgpd_submit_request(req: LgpdFormRequest):
+    """Formulário LGPD de coleta mínima para exercer direitos do titular (Art. 18)."""
+    try:
+        entry = submit_lgpd_request(
+            request_type=req.request_type,
+            contact_email=req.contact_email,
+            details=req.details
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    log_event(f"⚖️ Solicitação LGPD registrada com protocolo {entry['protocol']} ({entry['type']}).")
+    return {"success": True, "protocol": entry["protocol"], "entry": entry}
+
 
 @app.get("/manifest.json")
 def pwa_manifest():
