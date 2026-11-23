@@ -178,8 +178,8 @@ def run_job_pipeline(job_id: str, req: JobRequest):
         transcript_result = [None]
 
         def _analyze():
-            spikes_result[0] = detect_audio_spikes(media["audio_path"])
-            log_event(f"⚡ Picos de som detectados: {len(spikes_result[0])} momentos-chave.")
+            spikes_result[0] = detect_audio_spikes(media["audio_path"], top_n=60)
+            log_event(f"⚡ Picos de som detectados: {len(spikes_result[0])} momentos-chave ao longo do vídeo.")
 
         def _transcribe():
             transcript_result[0] = transcribe_audio(media["audio_path"])
@@ -197,15 +197,19 @@ def run_job_pipeline(job_id: str, req: JobRequest):
         job["progress"] = 50
 
         job["status"] = "ai_thinking"
-        job["progress"] = 70
-        job["message"] = "3/4 🧠 IA Gemini selecionando os momentos de maior retenção..."
-        log_event("🧠 Solicitando à IA Gemini a análise de ganchos (hooks) e retenção viral...")
+        job["progress"] = 60
+        if req.clips == 0:
+            job["message"] = "3/4 🔥 Modo Máximo: IA Gemini mapeando TODOS os momentos virais do vídeo inteiro..."
+            log_event("🔥 Modo Máximo Possível: analisando o vídeo completo em blocos com IA Gemini...")
+        else:
+            job["message"] = f"3/4 🧠 IA Gemini selecionando até {req.clips} momentos de maior retenção..."
+            log_event(f"🧠 Solicitando à IA Gemini até {req.clips} cortes com alto potencial viral...")
         viral_clips = find_viral_moments(transcript, max_clips=req.clips, audio_spikes=spikes)
         log_event(f"🎯 IA selecionou {len(viral_clips)} cortes com alto potencial viral.")
 
         job["status"] = "rendering"
-        job["progress"] = 85
-        job["message"] = f"4/4 ✂️ Renderizando {len(viral_clips)} cortes em paralelo..."
+        job["progress"] = 72
+        job["message"] = f"4/4 ✂️ Renderizando {len(viral_clips)} cortes em paralelo (0/{len(viral_clips)})..."
 
         video_output_dir = OUTPUT_DIR / media["id"]
         video_output_dir.mkdir(parents=True, exist_ok=True)
@@ -267,12 +271,17 @@ def run_job_pipeline(job_id: str, req: JobRequest):
             }
 
         results_map = {}
+        done_render = 0
+        total_render = max(len(viral_clips), 1)
         max_workers = min(len(viral_clips), 3)  # máx 3 ffmpeg simultâneos para não saturar CPU
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {executor.submit(render_clip, idx, clip): idx for idx, clip in enumerate(viral_clips, 1)}
             for future in as_completed(futures):
                 idx = futures[future]
                 results_map[idx] = future.result()
+                done_render += 1
+                job["progress"] = 72 + int((done_render / total_render) * 18)
+                job["message"] = f"4/4 ✂️ Renderizando cortes ({done_render}/{total_render} prontos)..."
 
         results = [results_map[i] for i in sorted(results_map.keys())]
 
@@ -340,7 +349,8 @@ def create_job(req: JobRequest, background_tasks: BackgroundTasks):
         log_event(f"🛡️ [URL BLOQUEADA] {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
-    req.clips = max(1, min(int(req.clips), 10))
+    # 0 = Modo Máximo Possível (calcula automaticamente p/ vídeo inteiro); 1..100 = quantidade exata
+    req.clips = 0 if int(req.clips) <= 0 else min(int(req.clips), 100)
     req.layout = validate_layout(req.layout)
 
     job_id = str(uuid.uuid4())[:8]

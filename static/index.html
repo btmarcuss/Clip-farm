@@ -478,12 +478,20 @@
 
           <div class="grid-options">
             <div class="select-box">
-              <label class="input-label">Quantidade</label>
-              <select id="clipsCount">
-                <option value="1">1 corte</option>
-                <option value="3" selected>3 cortes</option>
+              <label class="input-label">Quantidade de Cortes</label>
+              <select id="clipsCount" onchange="toggleCustomClips()">
+                <option value="0" selected>🔥 Máximo Possível (Vídeo Inteiro)</option>
+                <option value="3">3 cortes</option>
                 <option value="5">5 cortes</option>
+                <option value="10">10 cortes</option>
+                <option value="15">15 cortes</option>
+                <option value="20">20 cortes</option>
+                <option value="30">30 cortes</option>
+                <option value="50">50 cortes</option>
+                <option value="100">100 cortes</option>
+                <option value="custom">✏️ Personalizado (1 a 100)...</option>
               </select>
+              <input type="number" id="customClipsInput" min="1" max="100" value="25" placeholder="Digite a qtd (1-100)" style="display:none; margin-top:8px; width:100%;" />
             </div>
             <div class="select-box">
               <label class="input-label">Enquadramento</label>
@@ -1022,11 +1030,26 @@
       }
     }
 
+    function toggleCustomClips() {
+      const sel = document.getElementById('clipsCount');
+      const customInp = document.getElementById('customClipsInput');
+      if (customInp) {
+        customInp.style.display = sel.value === 'custom' ? 'block' : 'none';
+      }
+    }
+
     async function startCutProcess() {
       const url = document.getElementById('youtubeUrl').value.trim();
       if (!url) return showToast("⚠️ Cole uma URL válida do YouTube!");
 
-      const clips = parseInt(document.getElementById('clipsCount').value);
+      const selVal = document.getElementById('clipsCount').value;
+      let clips = 0;
+      if (selVal === 'custom') {
+        const customVal = parseInt(document.getElementById('customClipsInput').value);
+        clips = isNaN(customVal) ? 10 : Math.max(1, Math.min(customVal, 100));
+      } else {
+        clips = parseInt(selVal);
+      }
       const layout = document.getElementById('layout').value;
       const subtitles = document.getElementById('subtitlesToggle').checked;
       const auto_post = document.getElementById('autopostToggle').checked;
@@ -1049,6 +1072,11 @@
           body: JSON.stringify({ url, clips, layout, subtitles, auto_post, delete_after })
         });
         const data = await res.json();
+        if (!res.ok) {
+          btn.disabled = false;
+          card.style.display = 'none';
+          return showToast("❌ " + (data.detail || "Requisição recusada."));
+        }
         const jobId = data.job_id;
 
         const interval = setInterval(async () => {
