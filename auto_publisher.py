@@ -94,24 +94,39 @@ def is_tiktok_browser_logged_in() -> bool:
 
 
 def _dismiss_modals(page):
-    """Fecha pop-ups ou modais de boas-vindas do TikTok Studio."""
-    try:
-        page.keyboard.press("Escape")
-    except Exception:
-        pass
-    for selector in [
+    """Fecha pop-ups ou modais do TikTok Studio (ex.: 'Ativar verificações automáticas de conteúdo?')."""
+    modal_selectors = [
+        '.TUXModal-overlay button:has-text("Cancelar")',
+        '.TUXModal-overlay button:has-text("Cancel")',
+        '.TUXModal-overlay button:has-text("Agora não")',
+        '.TUXModal-overlay button:has-text("Not now")',
+        '.TUXModal-overlay button:has-text("Entendi")',
+        '.TUXModal-overlay button:has-text("Got it")',
+        '.TUXModal-overlay button:has-text("Fechar")',
+        '.TUXModal-overlay button:has-text("OK")',
+        '[data-floating-ui-portal] button:has-text("Cancelar")',
+        '[data-floating-ui-portal] button:has-text("Cancel")',
+        '[data-floating-ui-portal] button:has-text("Agora não")',
+        '[data-floating-ui-portal] button:has-text("Not now")',
         'button:has-text("Entendi")',
         'button:has-text("Got it")',
-        'button:has-text("OK")',
         '[aria-label="Close"]',
-    ]:
+    ]
+    for selector in modal_selectors:
         try:
             btn = page.locator(selector).first
             if btn.count() > 0 and btn.is_visible():
-                btn.click(timeout=1500)
-                time.sleep(0.5)
+                print(f"   🧹 Fechando modal do TikTok Studio ({selector})...")
+                btn.click(timeout=2000)
+                time.sleep(0.8)
         except Exception:
             pass
+    try:
+        if page.locator(".TUXModal-overlay").count() > 0:
+            page.keyboard.press("Escape")
+            time.sleep(0.4)
+    except Exception:
+        pass
 
 
 def _confirm_publish_modals(page):
@@ -299,6 +314,10 @@ def upload_clip_via_playwright(video_path: str, caption: str, delete_after: bool
                         time.sleep(2)
                     except Exception as e_cap:
                         print(f"   ⚠️ Aviso ao preencher legenda: {e_cap}")
+
+                # Garante que nenhum TUXModal-overlay esteja bloqueando antes de clicar em Publicar
+                _dismiss_modals(page)
+                time.sleep(0.6)
 
                 # Clica no botão Publicar
                 print("   🚀 Clicando no botão Publicar...")
